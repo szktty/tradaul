@@ -492,7 +492,7 @@ class LuaFunctionCompiler {
     _compileBlock(block);
     finish();
 
-    context.debugPrint();
+    //context.debugPrint();
   }
 
   void _compileNode(ast.Node node, {FunctionCallContext? callContext}) {
