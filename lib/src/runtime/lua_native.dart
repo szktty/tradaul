@@ -46,7 +46,7 @@ final class LuaArguments {
     }
   }
 
-  Result<T, LuaValue>? getRawValue<T extends Object>(int index) {
+  ResultDart<T, LuaValue>? getRawValue<T extends Object>(int index) {
     final value = get(index);
     if (value == null) {
       return null;
@@ -71,7 +71,7 @@ final class LuaArguments {
     return get<LuaInteger>(index)?.value.toInt();
   }
 
-  Result<Int64, LuaValue>? getIntegerRepresentation(int index) {
+  ResultDart<Int64, LuaValue>? getIntegerRepresentation(int index) {
     final value = get(index);
     if (value == null) {
       return null;
@@ -104,7 +104,7 @@ final class LuaArguments {
     return get<LuaString>(index)?.value;
   }
 
-  Result<LuaTable, LuaValue>? getTable(int index) {
+  ResultDart<LuaTable, LuaValue>? getTable(int index) {
     final value = get(index);
     if (value == null) {
       return null;

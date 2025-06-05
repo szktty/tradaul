@@ -68,7 +68,7 @@ final class LuaStringFormatter {
       );
   }
 
-  static Result<String, Exception> format(
+  static Result<String> format(
     String format,
     List<LuaValue> arguments,
   ) {

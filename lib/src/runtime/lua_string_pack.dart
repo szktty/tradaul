@@ -142,7 +142,7 @@ final class _FormatParser {
   final String format;
   final _FormatScanner scanner;
 
-  Result<List<_FormatOption>, String> parse() {
+  ResultDart<List<_FormatOption>, String> parse() {
     final options = <_FormatOption>[];
 
     while (scanner.hasNext) {
@@ -223,7 +223,7 @@ final class _Context {
 }
 
 abstract class StructPacker {
-  static Result<List<int>, String> pack(String format, List<Int64> values) {
+  static ResultDart<List<int>, String> pack(String format, List<Int64> values) {
     final result = _FormatParser(format).parse();
     if (result.isError()) {
       return Failure(result.exceptionOrNull()!);
@@ -241,7 +241,7 @@ abstract class StructPacker {
     return Success(context.builder.toBytes().toList());
   }
 
-  static Result<void, String> _packOption(
+  static ResultDart<void, String> _packOption(
     _FormatOption option,
     _Context context,
   ) {

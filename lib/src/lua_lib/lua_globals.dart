@@ -228,7 +228,7 @@ Future<LuaCallResult?> _luaLoadfile(
   // read file
   final readResult = FileUtils.read(fileName);
   if (readResult.isError()) {
-    return Success([LuaNil(), LuaString(readResult.exceptionOrNull()!)]);
+    return Success([LuaNil(), LuaString(readResult.exceptionOrNull()!.toString())]);
   }
   final source = readResult.getOrThrow();
 
@@ -289,7 +289,7 @@ Future<LuaCallResult?> _executeLoadedChunk(
   if (chunk is LuaString) {
     final result = context.compile(chunk.value, path: chunkName);
     if (result!.isError()) {
-      final message = result.exceptionOrNull()!.toDisplayString();
+      final message = result.exceptionOrNull()!.toString();
       return Success([LuaNil(), LuaString(message)]);
     }
     final code = result.getOrThrow();
@@ -316,7 +316,7 @@ Future<LuaCallResult?> _executeLoadedChunk(
     if (result.isSuccess()) {
       return Success(result.getOrThrow());
     } else {
-      final error = result.exceptionOrNull()!.toDisplayString();
+      final error = result.exceptionOrNull()!.toString();
       return Failure(LuaException(LuaExceptionType.runtimeError, error));
     }
   }
@@ -916,7 +916,7 @@ Future<LuaCallResult?> _luaPcall(
     return Success([LuaTrue(), ...result.getOrDefault([])]);
   } else {
     final error = result.exceptionOrNull()!;
-    return Success([LuaFalse(), LuaString(error.message)]);
+    return Success([LuaFalse(), LuaString(error.toString())]);
   }
 }
 

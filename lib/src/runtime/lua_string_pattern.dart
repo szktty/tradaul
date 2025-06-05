@@ -6,7 +6,7 @@ import 'package:tradaul/src/runtime/lua_table.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
 import 'package:tradaul/src/utils/errors.dart';
 
-typedef LuaStringPatternSubstitute = Future<Result<String, String>?> Function(
+typedef LuaStringPatternSubstitute = Future<ResultDart<String, String>?> Function(
   List<String>,
 );
 
@@ -392,7 +392,7 @@ final class PatternNode extends Node {
 final class LuaStringPattern {
   LuaStringPattern(this._pattern);
 
-  static Result<LuaStringPattern, String> compile(String pattern) {
+  static ResultDart<LuaStringPattern, String> compile(String pattern) {
     final result = PatternParser.parse(pattern);
     if (result.isError()) {
       return Failure(result.exceptionOrNull()!);
@@ -402,12 +402,12 @@ final class LuaStringPattern {
 
   final PatternNode _pattern;
 
-  Result<LuaStringPatternMatch, String> match(String string, {int start = 0}) {
+  ResultDart<LuaStringPatternMatch, String> match(String string, {int start = 0}) {
     final context = MatchContext(_pattern, string, start);
     return context.match();
   }
 
-  Future<Result<(String, int), String>> replaceAll(
+  Future<ResultDart<(String, int), String>> replaceAll(
     String string,
     Object replacement,
     int? limit,
@@ -453,7 +453,7 @@ final class MatchContext {
     _captures[node] = capture;
   }
 
-  Result<LuaStringPatternMatch, String> match() {
+  ResultDart<LuaStringPatternMatch, String> match() {
     try {
       var start = -1;
       var end = 0;
@@ -495,7 +495,7 @@ final class MatchContext {
     return matched;
   }
 
-  Future<Result<(String, int), String>> replaceAll(
+  Future<ResultDart<(String, int), String>> replaceAll(
     Object replacement,
     int? limit,
   ) async {
@@ -549,7 +549,7 @@ final class MatchContext {
     }
   }
 
-  Future<Result<String, String>> _replace(
+  Future<ResultDart<String, String>> _replace(
     LuaStringPatternMatch matchInfo,
     String matched,
     Object replacement,
@@ -669,11 +669,11 @@ final class PatternParser {
   PatternParser(String pattern) : _scanner = StringScanner(pattern);
   final StringScanner _scanner;
 
-  static Result<PatternNode, String> parse(String pattern) {
+  static ResultDart<PatternNode, String> parse(String pattern) {
     return PatternParser(pattern)._parse();
   }
 
-  Result<PatternNode, String> _parse({String? terminate}) {
+  ResultDart<PatternNode, String> _parse({String? terminate}) {
     final items = <PatternItemNode>[];
 
     while (!_scanner.isDone) {
@@ -697,7 +697,7 @@ final class PatternParser {
     return Success(PatternNode(items));
   }
 
-  Result<PatternItemNode, String> _parsePatternItem() {
+  ResultDart<PatternItemNode, String> _parsePatternItem() {
     if (_scanner.scan(RegExp('%([1-9]+)'))) {
       final n = _scanner.lastMatch![1]!;
       return Success(CapturedReferenceNode(int.parse(n) - 1));
@@ -728,7 +728,7 @@ final class PatternParser {
     }
   }
 
-  Result<PatternItemNode, String> _parseCharacterClass() {
+  ResultDart<PatternItemNode, String> _parseCharacterClass() {
     final basic = _parseBasicCharacterClass();
     if (basic != null) {
       return Success(CharacterClassPatternItemNode(basic.getOrThrow()));
@@ -746,7 +746,7 @@ final class PatternParser {
     }
   }
 
-  Result<CharacterClassNode, String>? _parseBasicCharacterClass() {
+  ResultDart<CharacterClassNode, String>? _parseBasicCharacterClass() {
     if (_scanner.scan('.')) {
       return Success(CharacterClassPatternNode(CharacterClassPattern.any));
     } else if (_scanner.scan('%a')) {
@@ -849,7 +849,7 @@ final class PatternParser {
     }
   }
 
-  Result<CharacterSetNode, String> _parseCharacterSet() {
+  ResultDart<CharacterSetNode, String> _parseCharacterSet() {
     final classes = <CharacterClassNode>[];
     final complement = _scanner.scan('^');
     var parseDone = false;

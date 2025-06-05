@@ -409,7 +409,7 @@ final class LuaCompilerContext {
   late FunctionContext mainContext;
 }
 
-typedef LuaCompilerResult = Result<LuaCompiledCode, LuaException>;
+typedef LuaCompilerResult = Result<LuaCompiledCode>;
 
 class LuaCompiler {
   LuaCompiler({this.path});

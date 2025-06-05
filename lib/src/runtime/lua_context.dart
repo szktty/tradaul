@@ -20,11 +20,11 @@ import 'package:tradaul/src/runtime/lua_values.dart';
 import 'package:tradaul/src/runtime/thread.dart';
 import 'package:tradaul/src/utils/log.dart';
 
-typedef LuaExecutionResult = Result<List<LuaValue>, LuaExceptionContext>;
-typedef LuaCallResult = Result<List<LuaValue>, LuaException>;
-typedef LuaValueResult = Result<LuaValue, LuaException>;
+typedef LuaExecutionResult = ResultDart<List<LuaValue>, LuaException>;
+typedef LuaCallResult = ResultDart<List<LuaValue>, LuaException>;
+typedef LuaValueResult = ResultDart<LuaValue, LuaException>;
 
-extension ResultLuaValueExtension on Result<List<LuaValue>, LuaException> {
+extension ResultLuaValueExtension on ResultDart<List<LuaValue>, LuaException> {
   LuaValueResult toLuaValueResult() {
     if (isSuccess()) {
       return Success(getOrThrow().first);
@@ -34,7 +34,7 @@ extension ResultLuaValueExtension on Result<List<LuaValue>, LuaException> {
   }
 }
 
-extension ResultLuaCallExtension on Result<LuaValue, LuaException> {
+extension ResultLuaCallExtension on ResultDart<LuaValue, LuaException> {
   LuaCallResult toLuaCallResult() {
     if (isSuccess()) {
       return Success([getOrThrow()]);
@@ -100,11 +100,9 @@ final class LuaContext {
   }) async {
     if (_isRunning) {
       return Failure(
-        LuaExceptionContext(
-          LuaException(
-            LuaExceptionType.runtimeError,
-            'LuaContext is already running',
-          ),
+        LuaException(
+          LuaExceptionType.runtimeError,
+          'LuaContext is already running',
         ),
       );
     }
@@ -116,7 +114,9 @@ final class LuaContext {
     if (compilerResult == null) {
       return const Success([]);
     } else if (compilerResult.isError()) {
-      return Failure(compilerResult.exceptionOrNull()!);
+      final exception = compilerResult.exceptionOrNull()!;
+      return Failure(
+          exception is LuaException ? exception : LuaException.wrap(exception));
     }
 
     final code = compilerResult.getOrThrow();
@@ -230,7 +230,7 @@ extension LuaContextInternal on LuaContext {
     _threads.remove(thread);
   }
 
-  Result<LuaCompiledCode, LuaExceptionContext>? compile(
+  Result<LuaCompiledCode>? compile(
     String source, {
     required String path,
   }) {
@@ -240,10 +240,8 @@ extension LuaContextInternal on LuaContext {
     if (!parserResult.isSuccess()) {
       final parserError = parserResult.exceptionOrNull()!;
       return Failure(
-        LuaExceptionContext(
-          LuaException.parserError(
-            message: parserError.message,
-          ),
+        LuaException.parserError(
+          message: parserError.toString(),
         ),
       );
     }
@@ -258,10 +256,8 @@ extension LuaContextInternal on LuaContext {
     if (compilerResult.isError()) {
       final compilerError = compilerResult.exceptionOrNull()!;
       return Failure(
-        LuaExceptionContext(
-          LuaException.compilerError(
-            message: compilerError.message,
-          ),
+        LuaException.compilerError(
+          message: compilerError.toString(),
         ),
       );
     }
@@ -303,8 +299,7 @@ extension LuaContextInternal on LuaContext {
       return Success(result.getOrThrow());
     } else {
       final error = result.exceptionOrNull();
-      final trace = coroutine.context?.trace();
-      return Failure(LuaExceptionContext(error!, trace));
+      return Failure(error!);
     }
   }
 }

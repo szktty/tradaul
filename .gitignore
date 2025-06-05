@@ -11,3 +11,5 @@ doc
 lua-5.4.6-tests
 test/execution/language/temp
 test/execution/temp
+.claude/settings.local.json
+.vscode/settings.json
