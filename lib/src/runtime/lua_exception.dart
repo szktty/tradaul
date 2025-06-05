@@ -1,4 +1,3 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:tradaul/src/parser/ast.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
 
@@ -46,7 +45,6 @@ extension LuaExceptionTypeExtension on LuaExceptionType {
 }
 
 final class LuaExceptionContext {
-  @protected
   LuaExceptionContext(this.exception, [this.stackTrace]);
 
   final LuaException exception;
@@ -153,7 +151,8 @@ final class LuaException implements Exception {
     required int order,
   }) : this(
           LuaExceptionType.badArgument,
-          "bad argument #$order to '$function' (number has no integer representation)",
+          "bad argument #$order to '$function' "
+          '(number has no integer representation)',
         );
 
   LuaException.notEnoughArguments({
@@ -162,7 +161,8 @@ final class LuaException implements Exception {
     required int actual,
   }) : this(
           LuaExceptionType.notEnoughArguments,
-          "not enough arguments '$function' ($expected expected, got $actual)",
+          "not enough arguments '$function' "
+          '($expected expected, got $actual)',
         );
 
   LuaException.invalidComparison(LuaValueType a, LuaValueType b)
@@ -206,7 +206,6 @@ final class LuaException implements Exception {
 }
 
 final class LuaStackTrace {
-  @protected
   LuaStackTrace(this.entries);
 
   final List<LuaStackTraceEntry> entries;
@@ -219,7 +218,6 @@ final class LuaStackTrace {
 }
 
 final class LuaStackTraceEntry {
-  @protected
   LuaStackTraceEntry({
     this.path,
     this.line,

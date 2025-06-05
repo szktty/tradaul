@@ -23,6 +23,7 @@ class LuaGlobals extends LuaNativeModule {
       ..addNativeCalls({
         'assert': _luaAssert,
         'collectgarbage': _luaCollectgarbage,
+        'dofile': _luaDofile,
         'error': _luaError,
         'load': _luaLoad,
         'loadfile': _luaLoadfile,
@@ -228,7 +229,7 @@ Future<LuaCallResult?> _luaLoadfile(
   // read file
   final readResult = FileUtils.read(fileName);
   if (readResult.isError()) {
-    return Success([LuaNil(), LuaString(readResult.exceptionOrNull()!.toString())]);
+    return Success([LuaNil(), LuaString(readResult.exceptionOrNull()!)]);
   }
   final source = readResult.getOrThrow();
 
@@ -288,7 +289,13 @@ Future<LuaCallResult?> _executeLoadedChunk(
   LuaClosure? closure;
   if (chunk is LuaString) {
     final result = context.compile(chunk.value, path: chunkName);
-    if (result!.isError()) {
+    if (result == null) {
+      return Failure(LuaException(
+        LuaExceptionType.compilerError,
+        'Compilation returned null',
+      ));
+    }
+    if (result.isError()) {
       final message = result.exceptionOrNull()!.toString();
       return Success([LuaNil(), LuaString(message)]);
     }
@@ -322,6 +329,56 @@ Future<LuaCallResult?> _executeLoadedChunk(
   }
 
   return Success([LuaNativeFunction(chunkName, loader)]);
+}
+
+Future<LuaCallResult?> _luaDofile(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  // Call loadfile to get the function
+  final loadResult = await _luaLoadfile(context, arguments);
+  if (loadResult == null) {
+    return Failure(LuaException(
+      LuaExceptionType.runtimeError,
+      'dofile: internal error',
+    ));
+  }
+  if (loadResult.isError()) {
+    return loadResult;
+  }
+
+  final loadValues = loadResult.getOrThrow();
+  if (loadValues.isEmpty) {
+    return const Success([]);
+  }
+
+  final first = loadValues[0];
+  if (first is LuaNil) {
+    // loadfile returned [nil, error_message]
+    if (loadValues.length > 1) {
+      final errorMsg = loadValues[1];
+      return Failure(LuaException(
+        LuaExceptionType.runtimeError,
+        errorMsg.toString(),
+      ));
+    } else {
+      return Failure(LuaException(
+        LuaExceptionType.runtimeError,
+        'dofile: unknown error',
+      ));
+    }
+  }
+
+  if (first is! LuaNativeFunction) {
+    return Failure(LuaException(
+      LuaExceptionType.runtimeError,
+      'dofile: loadfile did not return a function',
+    ));
+  }
+
+  // Execute the loaded function
+  final execResult = await first.call(context, const []);
+  return execResult;
 }
 
 Future<LuaCallResult?> _luaRequire(

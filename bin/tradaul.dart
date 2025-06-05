@@ -92,7 +92,7 @@ Future<void> main(List<String> arguments) async {
       exit(1);
     }
     final result = await context.execute(
-      source!,
+      source,
       path: path,
       arguments: (before, after),
     );

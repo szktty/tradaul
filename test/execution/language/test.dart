@@ -40,8 +40,7 @@ Future<List<LuaValue>> luaExecute(
   if (result.isSuccess()) {
     return result.getOrThrow();
   } else {
-    final excContext = result.exceptionOrNull()!;
-    final exception = excContext.exception;
+    final exception = result.exceptionOrNull()!;
     throw exception;
     /*
     if (exception.type == LuaExceptionType.nonCallable ||
@@ -279,34 +278,34 @@ void testBinaryOperator(
   });
 }
 
-final testDir = path.join(
+final String testDir = path.join(
   Directory.current.path,
   'test',
   'execution',
 );
 
-final searchDir = path.join(
+final String searchDir = path.join(
   testDir,
   'language',
   'lua_lib',
 );
 
-final searchPath = [
+final List<String> searchPath = [
   path.join(searchDir, '?.lua'),
   path.join(searchDir, 'foo/?.lua'),
   path.join(searchDir, 'foo/bar/?.lua'),
   path.join(searchDir, 'foo/bar/baz/?.lua'),
 ];
 
-final luaSearchPath = LuaSearchPath.fromList(searchPath);
+final LuaSearchPath luaSearchPath = LuaSearchPath.fromList(searchPath);
 
-final luaSearchPathString = luaSearchPath.luaToString;
+final String luaSearchPathString = luaSearchPath.luaToString;
 
 const fooModuleValue = 'foo';
 const fooBarModuleValue = 'bar';
 const fooBarBazModuleValue = 'baz';
 
-final tempDir = path.join(
+final String tempDir = path.join(
   testDir,
   'temp',
 );
