@@ -8,7 +8,7 @@ abstract class FileUtils {
 
   static const List<Encoding> defaultEncodings = [utf8, ascii, latin1];
 
-  static Result<String, String> read(
+  static ResultDart<String, String> read(
     String path, {
     List<Encoding>? encodings,
   }) {

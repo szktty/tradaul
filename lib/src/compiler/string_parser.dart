@@ -3,7 +3,7 @@ import 'package:result_dart/result_dart.dart';
 class LiteralStringParser {
   LiteralStringParser(this.input);
 
-  static Result<String, Exception> parse(String input) {
+  static Result<String> parse(String input) {
     try {
       final parser = LiteralStringParser(input);
       return Success(parser._parse());

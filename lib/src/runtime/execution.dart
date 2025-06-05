@@ -808,7 +808,7 @@ final class CompiledExecutionContext extends ExecutionContext {
        */
       final argWrap = LuaArguments(args);
       final result =
-          await func.callback(thread.luaContext, argWrap) ?? Result.success([]);
+          await func.callback(thread.luaContext, argWrap) ?? Success(const <LuaValue>[]);
       // newContext.finish();
       return result;
     } else if (func is LuaClosure) {

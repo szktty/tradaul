@@ -208,7 +208,7 @@ Future<LuaCallResult?> _luaGsub(
   } else if (replBase is LuaTable) {
     repl = replBase;
   } else if (replBase is LuaFunction) {
-    Future<Result<String, String>?> f(List<String> captures) async {
+    Future<ResultDart<String, String>?> f(List<String> captures) async {
       final arguments = captures.map(LuaString.new).toList();
       final invocation =
           LuaValueInvocation(target: replBase, arguments: arguments);

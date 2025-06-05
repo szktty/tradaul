@@ -33,7 +33,7 @@ final class LuaValueHolder {
 final class LuaBinding extends LuaValue {
   LuaBinding({required this.onGet, this.onSet});
 
-  final Result<LuaValue, LuaException> Function() onGet;
+  final Result<LuaValue> Function() onGet;
   final LuaException? Function(LuaValue value)? onSet;
 
   @override

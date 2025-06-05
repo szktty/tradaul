@@ -19,20 +19,20 @@ final class LuaOsModuleOptions {
     this.shellIsAvailable,
   });
 
-  final Future<Result<double, Exception>> Function()? clock;
+  final Future<Result<double>> Function()? clock;
 
   // os.setlocale
-  final Future<Result<String, Exception>> Function(
+  final Future<Result<String>> Function(
     String locale,
     LuaLocaleCategory category,
   )? setLocale;
 
   // os.getenv
-  final Future<Result<String, Exception>>? Function(String name)?
+  final Future<Result<String>>? Function(String name)?
       getEnvironmentVariable;
 
   // os.time
-  final Future<Result<Int64, Exception>> Function(LuaOsDateTime? localDateTime)?
+  final Future<Result<Int64>> Function(LuaOsDateTime? localDateTime)?
       time;
 
   // os.date
@@ -41,45 +41,44 @@ final class LuaOsModuleOptions {
               ({
                 String string,
                 LuaOsDateTime dateTime,
-              }),
-              Exception>>
+              })>>
       Function(
     String format,
     LuaOsDateTime dateTime, {
     required bool utc,
   })? format;
 
-  final Future<Result<LuaOsDateTime, Exception>> Function(
+  final Future<Result<LuaOsDateTime>> Function(
     LuaOsDateTime? localDateTime,
   )? utcDateTime;
 
   // os.difftime
-  final Future<Result<Int64, Exception>> Function(Int64 t2, Int64 t1)?
+  final Future<Result<Int64>> Function(Int64 t2, Int64 t1)?
       timeDifference;
 
   // os.remove
-  final Future<Result<void, LuaOsError>> Function(String name)? removeFile;
+  final Future<ResultDart<void, LuaOsError>> Function(String name)? removeFile;
 
   // os.rename
-  final Future<Result<void, LuaOsError>> Function(
+  final Future<ResultDart<void, LuaOsError>> Function(
     String oldName,
     String newName,
   )? renameFileOrDirectory;
 
   // os.tmpname
-  final Future<Result<String, Exception>> Function()? temporaryFileName;
+  final Future<Result<String>> Function()? temporaryFileName;
 
   // os.exit
-  final Future<Result<bool, Exception>> Function({bool? status, int? code})?
+  final Future<Result<bool>> Function({bool? status, int? code})?
       exit;
 
   // os.execute(command)
-  final Future<Result<LuaOsExecutionStatus, Exception>> Function(
+  final Future<Result<LuaOsExecutionStatus>> Function(
     String command,
   )? execute;
 
   // os.execute()
-  final Future<Result<LuaOsExecutionStatus, Exception>> Function(
+  final Future<Result<LuaOsExecutionStatus>> Function(
     String command,
   )? shellIsAvailable;
 }
@@ -142,23 +141,23 @@ final class LuaIoModuleOptions {
     this.setBufferingMode,
   });
 
-  Future<Result<Object, Exception>> Function(String path, String? mode)? open;
-  Future<Result<Object, Exception>> Function(Object file)? close;
-  Future<Result<Object, Exception>> Function(String program, String? mode)?
+  Future<Result<Object>> Function(String path, String? mode)? open;
+  Future<Result<Object>> Function(Object file)? close;
+  Future<Result<Object>> Function(String program, String? mode)?
       popen;
-  Future<Result<List<LuaValue>, Exception>> Function(
+  Future<Result<List<LuaValue>>> Function(
     Object file,
     List<String> formats,
   )? read;
-  Future<Result<void, Exception>> Function(Object file, Object data)? write;
-  Future<Result<void, Exception>> Function(Object file)? flush;
-  Future<Result<List<int>, Exception>> Function(
+  Future<Result<void>> Function(Object file, Object data)? write;
+  Future<Result<void>> Function(Object file)? flush;
+  Future<Result<List<int>>> Function(
     Object file,
     String whence,
     int offset,
   )? seek;
 
-  Future<Result<List<int>, Exception>> Function(
+  Future<Result<List<int>>> Function(
     Object file,
     String mode,
     int size,

@@ -10,7 +10,7 @@ import 'package:tradaul/src/runtime/lua_exception.dart';
 // ignore_for_file: non_bool_condition
 // ignore_for_file: avoid_dynamic_calls
 
-typedef LuaParserResult = r.Result<Chunk, LuaException>;
+typedef LuaParserResult = r.Result<Chunk>;
 
 class LuaParser {
   LuaParser({required this.input, this.path}) {

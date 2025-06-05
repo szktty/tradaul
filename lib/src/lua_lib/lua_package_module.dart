@@ -58,7 +58,7 @@ class LuaPackageModule extends LuaNativeModule {
   }
 }
 
-Result<LuaValue, LuaException> _luaConfigGet() {
+Result<LuaValue> _luaConfigGet() {
   return Success(
     LuaString(
       [
@@ -73,7 +73,7 @@ Result<LuaValue, LuaException> _luaConfigGet() {
   );
 }
 
-Result<LuaValue, LuaException> Function() _luaPathGet(LuaContext context) =>
+Result<LuaValue> Function() _luaPathGet(LuaContext context) =>
     () => Success(LuaString(context.moduleManager.userSearchPath.luaToString));
 
 LuaException? Function(LuaValue) _luaPathSet(LuaContext context) => (value) {

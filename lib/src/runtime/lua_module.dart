@@ -12,7 +12,7 @@ import 'package:tradaul/src/runtime/lua_table.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
 import 'package:tradaul/src/utils/file.dart';
 
-typedef LuaModuleSearcher = Result<LuaModuleLoader, String> Function(
+typedef LuaModuleSearcher = ResultDart<LuaModuleLoader, String> Function(
   LuaContext context,
   String name,
 );
@@ -100,7 +100,7 @@ final class LuaFileModule extends LuaModule {
     final source = file.readAsStringSync();
     final compilerResult = context.compile(source, path: path);
     if (compilerResult!.isError()) {
-      final message = compilerResult.exceptionOrNull()!.toDisplayString();
+      final message = compilerResult.exceptionOrNull()!.toString();
       return Failure(LuaException(LuaExceptionType.runtimeError, message));
     }
 
@@ -111,7 +111,7 @@ final class LuaFileModule extends LuaModule {
       final value = execResult.getOrThrow().firstOrNull ?? LuaNil();
       return Success(value);
     } else {
-      final error = execResult.exceptionOrNull()!.toDisplayString();
+      final error = execResult.exceptionOrNull()!.toString();
       return Failure(LuaException(LuaExceptionType.runtimeError, error));
     }
   }
@@ -147,7 +147,7 @@ final class LuaCustomModule extends LuaModule {
 }
 
 abstract class LuaModuleSearchers {
-  static Result<LuaModuleLoader, String> _fileSearcher(
+  static ResultDart<LuaModuleLoader, String> _fileSearcher(
     String name,
     LuaSearchPath searchPath,
     LuaModuleLoader Function(String path) creator,
@@ -161,7 +161,7 @@ abstract class LuaModuleSearchers {
     }
   }
 
-  static Result<LuaModuleLoader, String> system(
+  static ResultDart<LuaModuleLoader, String> system(
     LuaContext context,
     String name,
   ) =>
@@ -174,7 +174,7 @@ abstract class LuaModuleSearchers {
         ),
       );
 
-  static Result<LuaModuleLoader, String> preload(
+  static ResultDart<LuaModuleLoader, String> preload(
     LuaContext context,
     String name,
   ) {
@@ -188,7 +188,7 @@ abstract class LuaModuleSearchers {
     }
   }
 
-  static Result<LuaModuleLoader, String> user(
+  static ResultDart<LuaModuleLoader, String> user(
     LuaContext context,
     String name,
   ) =>
