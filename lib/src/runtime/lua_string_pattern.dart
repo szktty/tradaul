@@ -6,7 +6,8 @@ import 'package:tradaul/src/runtime/lua_table.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
 import 'package:tradaul/src/utils/errors.dart';
 
-typedef LuaStringPatternSubstitute = Future<ResultDart<String, String>?> Function(
+typedef LuaStringPatternSubstitute = Future<ResultDart<String, String>?>
+    Function(
   List<String>,
 );
 
@@ -402,7 +403,8 @@ final class LuaStringPattern {
 
   final PatternNode _pattern;
 
-  ResultDart<LuaStringPatternMatch, String> match(String string, {int start = 0}) {
+  ResultDart<LuaStringPatternMatch, String> match(String string,
+      {int start = 0}) {
     final context = MatchContext(_pattern, string, start);
     return context.match();
   }

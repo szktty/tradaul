@@ -1,11 +1,12 @@
 import 'package:petitparser/context.dart';
+import 'package:petitparser/src/core/parser.dart';
 import 'package:test/test.dart';
 import 'package:tradaul/src/parser/ast.dart';
 import 'package:tradaul/src/parser/grammar.dart';
 import 'package:tradaul/src/parser/parser.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
 
-final _p = LuaParserDefinition().build();
+final Parser _p = LuaParserDefinition().build();
 
 Result<dynamic> parse(String input) {
   return _p.parse(input);

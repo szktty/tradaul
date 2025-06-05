@@ -47,7 +47,7 @@ enum LuaLogLevel implements Comparable<LuaLogLevel> {
 }
 
 abstract class Log {
-  static final _logger = _initLogger();
+  static final Logger _logger = _initLogger();
 
   static Logger _initLogger() {
     final logger = Logger('Lua');

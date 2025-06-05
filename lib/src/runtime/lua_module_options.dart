@@ -28,12 +28,10 @@ final class LuaOsModuleOptions {
   )? setLocale;
 
   // os.getenv
-  final Future<Result<String>>? Function(String name)?
-      getEnvironmentVariable;
+  final Future<Result<String>>? Function(String name)? getEnvironmentVariable;
 
   // os.time
-  final Future<Result<Int64>> Function(LuaOsDateTime? localDateTime)?
-      time;
+  final Future<Result<Int64>> Function(LuaOsDateTime? localDateTime)? time;
 
   // os.date
   final Future<
@@ -53,8 +51,7 @@ final class LuaOsModuleOptions {
   )? utcDateTime;
 
   // os.difftime
-  final Future<Result<Int64>> Function(Int64 t2, Int64 t1)?
-      timeDifference;
+  final Future<Result<Int64>> Function(Int64 t2, Int64 t1)? timeDifference;
 
   // os.remove
   final Future<ResultDart<void, LuaOsError>> Function(String name)? removeFile;
@@ -69,8 +66,7 @@ final class LuaOsModuleOptions {
   final Future<Result<String>> Function()? temporaryFileName;
 
   // os.exit
-  final Future<Result<bool>> Function({bool? status, int? code})?
-      exit;
+  final Future<Result<bool>> Function({bool? status, int? code})? exit;
 
   // os.execute(command)
   final Future<Result<LuaOsExecutionStatus>> Function(
@@ -143,8 +139,7 @@ final class LuaIoModuleOptions {
 
   Future<Result<Object>> Function(String path, String? mode)? open;
   Future<Result<Object>> Function(Object file)? close;
-  Future<Result<Object>> Function(String program, String? mode)?
-      popen;
+  Future<Result<Object>> Function(String program, String? mode)? popen;
   Future<Result<List<LuaValue>>> Function(
     Object file,
     List<String> formats,

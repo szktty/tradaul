@@ -226,7 +226,7 @@ final class CompiledExecutionContext extends ExecutionContext {
   CompiledExecutionContext get thisParent =>
       parent! as CompiledExecutionContext;
 
-  var _state = ExecutionContextState.suspended;
+  ExecutionContextState _state = ExecutionContextState.suspended;
 
   ExecutionContextState get state => _state;
 
@@ -807,8 +807,8 @@ final class CompiledExecutionContext extends ExecutionContext {
       );
        */
       final argWrap = LuaArguments(args);
-      final result =
-          await func.callback(thread.luaContext, argWrap) ?? Success(const <LuaValue>[]);
+      final result = await func.callback(thread.luaContext, argWrap) ??
+          const Success(<LuaValue>[]);
       // newContext.finish();
       return result;
     } else if (func is LuaClosure) {

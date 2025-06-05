@@ -61,8 +61,7 @@ void main() {
 
       test('invalid UTF-8 string', () async {
         expect(
-          () async =>
-              await luaExecute('for p, c in utf8.codes("\xC3\x28") do end'),
+          () async => luaExecute('for p, c in utf8.codes("\xC3\x28") do end'),
           throwsA(isA<LuaException>()),
         );
       });
@@ -78,7 +77,7 @@ void main() {
 
       test('invalid position', () async {
         expect(
-          () async => await luaExecute('return utf8.codepoint("abc", 10)'),
+          () async => luaExecute('return utf8.codepoint("abc", 10)'),
           throwsA(isA<LuaException>()),
         );
       });
@@ -91,7 +90,7 @@ void main() {
 
       test('invalid UTF-8 string', () async {
         expect(
-          () async => await luaExecute('return utf8.len("\xC3\x28")'),
+          () async => luaExecute('return utf8.len("\xC3\x28")'),
           throwsA(isA<LuaException>()),
         );
       });

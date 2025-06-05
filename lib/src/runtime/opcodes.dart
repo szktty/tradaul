@@ -284,7 +284,7 @@ abstract class LuaOpcode {
     c = c ?? 0;
 
     if (ax != null) {
-      return (op & mask8bits) | (((ax & mask24bits) << 8));
+      return (op & mask8bits) | ((ax & mask24bits) << 8);
     } else if (sAx != null) {
       final finalAx =
           sAx + (1 << 23); // offset by 2^23 to handle negative numbers
