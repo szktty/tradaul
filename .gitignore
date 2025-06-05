@@ -6,7 +6,7 @@
 # https://dart.dev/guides/libraries/private-files#pubspeclock.
 pubspec.lock
 .idea
-bin
+bin/tradaul
 doc
 lua-5.4.6-tests
 test/execution/language/temp

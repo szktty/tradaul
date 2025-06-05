@@ -1,7 +1,7 @@
 .PHONY: generate cli
 
 CLI_PATH = bin/tradaul
-CLI_SRC = bin/main.dart
+CLI_SRC = bin/tradaul.dart
 
 all:
 	@echo "Error: select target"
