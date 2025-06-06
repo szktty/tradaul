@@ -43,7 +43,7 @@ abstract class LuaValue {
 
   bool get isNumber => isInteger || isFloat;
 
-  bool get isInteger => false;
+  bool get isInteger => this is LuaInteger || this is LuaLargeInteger;
 
   bool get isFloat => false;
 
@@ -185,10 +185,12 @@ abstract class LuaNumber extends LuaValue {
       return LuaInteger.fromInt(value);
     } else if (value is Int64) {
       return LuaInteger(value);
+    } else if (value is BigInt) {
+      return LuaLargeInteger(value);
     } else if (value is double) {
       return LuaFloat(value);
     } else {
-      throw ArgumentError('value must be int, Int64 or double');
+      throw ArgumentError('value must be int, Int64, BigInt or double');
     }
   }
 
@@ -245,6 +247,190 @@ final class LuaInteger extends LuaNumber {
 
   @override
   Int64? toIntegerRepresentation() => value;
+}
+
+final class LuaLargeInteger extends LuaNumber {
+  LuaLargeInteger(this.value);
+
+  LuaLargeInteger.fromInt(int value) : value = BigInt.from(value);
+
+  LuaLargeInteger.fromInt64(Int64 value) : value = BigInt.from(value.toInt());
+
+  LuaLargeInteger.fromString(String value) : value = BigInt.parse(value);
+
+  final BigInt value;
+
+  @override
+  bool get isInteger => true;
+
+  @override
+  bool luaEquals(LuaValue other) {
+    if (this == other) {
+      return true;
+    } else if (other is LuaLargeInteger) {
+      return other.value == value;
+    } else if (other is LuaInteger) {
+      // Compare with regular integer
+      return value == BigInt.from(other.value.toInt());
+    } else if (other is LuaFloat) {
+      // Check if float value can be represented as integer
+      final doubleValue = other.value;
+      if (doubleValue.isFinite && 
+          doubleValue == doubleValue.truncateToDouble()) {
+        try {
+          final bigIntValue = BigInt.from(doubleValue.truncate());
+          return value == bigIntValue;
+        } on Exception {
+          return false;
+        }
+      }
+      return false;
+    } else {
+      return false;
+    }
+  }
+
+  @override
+  int get luaHashCode => value.hashCode;
+
+  @override
+  String toString() {
+    return '#$value';
+  }
+
+  @override
+  String get luaRepresentation => value.toString();
+
+  @override
+  dynamic get rawValue => value;
+
+  @override
+  double toDouble() => value.toDouble();
+
+  @override
+  Int64? toIntegerRepresentation() {
+    // Check if the BigInt value fits within Int64 range
+    if (value >= BigInt.from(Int64.MIN_VALUE.toInt()) && 
+        value <= BigInt.from(Int64.MAX_VALUE.toInt())) {
+      try {
+        return Int64(value.toInt());
+      } on Exception {
+        // Value conversion failed
+      }
+    }
+    return null;
+  }
+
+  /// Convert to regular LuaInteger if value fits in Int64
+  LuaInteger? toRegularInteger() {
+    final int64Value = toIntegerRepresentation();
+    if (int64Value != null) {
+      return LuaInteger(int64Value);
+    }
+    return null;
+  }
+
+  /// Check if this large integer can fit in a regular Int64
+  bool fitsInInt64() => toIntegerRepresentation() != null;
+
+  /// Convert to the smallest appropriate number type
+  LuaNumber normalize() {
+    final regularInt = toRegularInteger();
+    if (regularInt != null) {
+      return regularInt;
+    }
+    return this;
+  }
+
+  // Arithmetic operations returning LuaLargeInteger
+  LuaLargeInteger add(LuaLargeInteger other) {
+    return LuaLargeInteger(value + other.value);
+  }
+
+  LuaLargeInteger subtract(LuaLargeInteger other) {
+    return LuaLargeInteger(value - other.value);
+  }
+
+  LuaLargeInteger multiply(LuaLargeInteger other) {
+    return LuaLargeInteger(value * other.value);
+  }
+
+  LuaLargeInteger divide(LuaLargeInteger other) {
+    return LuaLargeInteger(value ~/ other.value);
+  }
+
+  LuaLargeInteger modulo(LuaLargeInteger other) {
+    return LuaLargeInteger(value % other.value);
+  }
+
+  LuaLargeInteger power(int exponent) {
+    return LuaLargeInteger(value.pow(exponent));
+  }
+
+  LuaLargeInteger negate() {
+    return LuaLargeInteger(-value);
+  }
+
+  LuaLargeInteger abs() {
+    return LuaLargeInteger(value.abs());
+  }
+
+  // Bitwise operations
+  LuaLargeInteger bitwiseAnd(LuaLargeInteger other) {
+    return LuaLargeInteger(value & other.value);
+  }
+
+  LuaLargeInteger bitwiseOr(LuaLargeInteger other) {
+    return LuaLargeInteger(value | other.value);
+  }
+
+  LuaLargeInteger bitwiseXor(LuaLargeInteger other) {
+    return LuaLargeInteger(value ^ other.value);
+  }
+
+  LuaLargeInteger bitwiseNot() {
+    return LuaLargeInteger(~value);
+  }
+
+  LuaLargeInteger shiftLeft(int places) {
+    return LuaLargeInteger(value << places);
+  }
+
+  LuaLargeInteger shiftRight(int places) {
+    return LuaLargeInteger(value >> places);
+  }
+
+  // Comparison operations
+  bool isLessThan(LuaLargeInteger other) {
+    return value < other.value;
+  }
+
+  bool isLessThanOrEqual(LuaLargeInteger other) {
+    return value <= other.value;
+  }
+
+  bool isGreaterThan(LuaLargeInteger other) {
+    return value > other.value;
+  }
+
+  bool isGreaterThanOrEqual(LuaLargeInteger other) {
+    return value >= other.value;
+  }
+
+  // Utility methods
+  bool get isEven => value.isEven;
+  
+  bool get isOdd => value.isOdd;
+  
+  bool get isNegative => value.isNegative;
+  
+  bool get isZero => value == BigInt.zero;
+  
+  bool get isOne => value == BigInt.one;
+  
+  int get sign => value.sign;
+  
+  int get bitLength => value.bitLength;
 }
 
 final class LuaFloat extends LuaNumber {

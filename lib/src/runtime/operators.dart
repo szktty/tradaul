@@ -23,6 +23,15 @@ abstract class ArithmeticOperatorDispatcher {
     );
   }
 
+  static BigInt? _tryParseBigInt(String value) {
+    try {
+      return BigInt.parse(value);
+    } on FormatException {
+      // Return null if string is not a valid BigInt
+      return null;
+    }
+  }
+
   static LuaValue _redispatchStrings(
     LuaValue Function(dynamic, dynamic) f,
     String op,
@@ -31,28 +40,56 @@ abstract class ArithmeticOperatorDispatcher {
   ) {
     Int64? aInt;
     Int64? bInt;
+    BigInt? aBigInt;
+    BigInt? bBigInt;
     double? aDouble;
     double? bDouble;
 
     if (a is Int64) {
       aInt = a;
+    } else if (a is BigInt) {
+      aBigInt = a;
     } else if (a is double) {
       aDouble = a;
     } else if (a is String) {
       aInt = NumberParser.parseInt64(a);
       if (aInt == null) {
         aDouble = NumberParser.parseDouble(a);
+        if (aDouble == null) {
+          // Try parsing as BigInt as last resort
+          aBigInt = _tryParseBigInt(a);
+        }
       }
     }
 
     if (b is Int64) {
       bInt = b;
+    } else if (b is BigInt) {
+      bBigInt = b;
     } else if (b is double) {
       bDouble = b;
     } else if (b is String) {
       bInt = NumberParser.parseInt64(b);
       if (bInt == null) {
         bDouble = NumberParser.parseDouble(b);
+        if (bDouble == null) {
+          // Try parsing as BigInt as last resort
+          bBigInt = _tryParseBigInt(b);
+        }
+      }
+    }
+
+    // Handle BigInt arithmetic
+    if (aBigInt != null || bBigInt != null) {
+      final finalA = aBigInt ?? 
+          (aInt != null ? BigInt.from(aInt.toInt()) : 
+           (aDouble != null ? BigInt.from(aDouble.toInt()) : null));
+      final finalB = bBigInt ?? 
+          (bInt != null ? BigInt.from(bInt.toInt()) : 
+           (bDouble != null ? BigInt.from(bDouble.toInt()) : null));
+      
+      if (finalA != null && finalB != null) {
+        return f(finalA, finalB);
       }
     }
 
@@ -60,50 +97,98 @@ abstract class ArithmeticOperatorDispatcher {
         (bInt != null || bDouble != null)) {
       return f(aInt ?? aDouble, bInt ?? bDouble);
     } else {
-      throw _invalidTypeError('add', a, b);
+      throw _invalidTypeError(op, a, b);
+    }
+  }
+
+  static LuaValue _additionDispatch(dynamic a, dynamic b) {
+    if (a is BigInt && b is BigInt) {
+      return LuaLargeInteger(a + b).normalize();
+    } else if (a is BigInt && b is Int64) {
+      return LuaLargeInteger(a + BigInt.from(b.toInt())).normalize();
+    } else if (a is Int64 && b is BigInt) {
+      return LuaLargeInteger(BigInt.from(a.toInt()) + b).normalize();
+    } else if (a is BigInt && b is double) {
+      return LuaFloat(a.toDouble() + b);
+    } else if (a is double && b is BigInt) {
+      return LuaFloat(a + b.toDouble());
+    } else {
+      return addition.dispatch(a, b);
     }
   }
 
   static final ArithmeticFourOperationsTypeDispatch addition = TypeDispatch3(
     t1T1: (a, b) => LuaInteger(a + b),
     t1T2: (a, b) => LuaFloat(a.toDouble() + b),
-    t1T3: (a, b) => _redispatchStrings(addition.dispatch, 'add', a, b),
+    t1T3: (a, b) => _redispatchStrings(_additionDispatch, 'add', a, b),
     t2T1: (a, b) => LuaFloat(a + b.toDouble()),
     t2T2: (a, b) => LuaFloat(a + b),
-    t2T3: (a, b) => _redispatchStrings(addition.dispatch, 'add', a, b),
-    t3T1: (a, b) => _redispatchStrings(addition.dispatch, 'add', a, b),
-    t3T2: (a, b) => _redispatchStrings(addition.dispatch, 'add', a, b),
-    t3T3: (a, b) => _redispatchStrings(addition.dispatch, 'add', a, b),
+    t2T3: (a, b) => _redispatchStrings(_additionDispatch, 'add', a, b),
+    t3T1: (a, b) => _redispatchStrings(_additionDispatch, 'add', a, b),
+    t3T2: (a, b) => _redispatchStrings(_additionDispatch, 'add', a, b),
+    t3T3: (a, b) => _redispatchStrings(_additionDispatch, 'add', a, b),
   );
+
+  static LuaValue _subtractionDispatch(dynamic a, dynamic b) {
+    if (a is BigInt && b is BigInt) {
+      return LuaLargeInteger(a - b).normalize();
+    } else if (a is BigInt && b is Int64) {
+      return LuaLargeInteger(a - BigInt.from(b.toInt())).normalize();
+    } else if (a is Int64 && b is BigInt) {
+      return LuaLargeInteger(BigInt.from(a.toInt()) - b).normalize();
+    } else if (a is BigInt && b is double) {
+      return LuaFloat(a.toDouble() - b);
+    } else if (a is double && b is BigInt) {
+      return LuaFloat(a - b.toDouble());
+    } else {
+      return subtraction.dispatch(a, b);
+    }
+  }
 
   static final ArithmeticFourOperationsTypeDispatch subtraction = TypeDispatch3(
     t1T1: (a, b) => LuaInteger(a - b),
     t1T2: (a, b) => LuaFloat(a.toDouble() - b),
-    t1T3: (a, b) => _redispatchStrings(subtraction.dispatch, 'subtract', a, b),
+    t1T3: (a, b) => _redispatchStrings(_subtractionDispatch, 'subtract', a, b),
     t2T1: (a, b) => LuaFloat(a - b.toDouble()),
     t2T2: (a, b) => LuaFloat(a - b),
-    t2T3: (a, b) => _redispatchStrings(subtraction.dispatch, 'subtract', a, b),
-    t3T1: (a, b) => _redispatchStrings(subtraction.dispatch, 'subtract', a, b),
-    t3T2: (a, b) => _redispatchStrings(subtraction.dispatch, 'subtract', a, b),
-    t3T3: (a, b) => _redispatchStrings(subtraction.dispatch, 'subtract', a, b),
+    t2T3: (a, b) => _redispatchStrings(_subtractionDispatch, 'subtract', a, b),
+    t3T1: (a, b) => _redispatchStrings(_subtractionDispatch, 'subtract', a, b),
+    t3T2: (a, b) => _redispatchStrings(_subtractionDispatch, 'subtract', a, b),
+    t3T3: (a, b) => _redispatchStrings(_subtractionDispatch, 'subtract', a, b),
   );
+
+  static LuaValue _multiplicationDispatch(dynamic a, dynamic b) {
+    if (a is BigInt && b is BigInt) {
+      return LuaLargeInteger(a * b).normalize();
+    } else if (a is BigInt && b is Int64) {
+      return LuaLargeInteger(a * BigInt.from(b.toInt())).normalize();
+    } else if (a is Int64 && b is BigInt) {
+      return LuaLargeInteger(BigInt.from(a.toInt()) * b).normalize();
+    } else if (a is BigInt && b is double) {
+      return LuaFloat(a.toDouble() * b);
+    } else if (a is double && b is BigInt) {
+      return LuaFloat(a * b.toDouble());
+    } else {
+      return multiplication.dispatch(a, b);
+    }
+  }
 
   static final ArithmeticFourOperationsTypeDispatch multiplication =
       TypeDispatch3(
     t1T1: (a, b) => LuaInteger(a * b),
     t1T2: (a, b) => LuaFloat(a.toDouble() * b),
     t1T3: (a, b) =>
-        _redispatchStrings(multiplication.dispatch, 'multiply', a, b),
+        _redispatchStrings(_multiplicationDispatch, 'multiply', a, b),
     t2T1: (a, b) => LuaFloat(a * b.toDouble()),
     t2T2: (a, b) => LuaFloat(a * b),
     t2T3: (a, b) =>
-        _redispatchStrings(multiplication.dispatch, 'multiply', a, b),
+        _redispatchStrings(_multiplicationDispatch, 'multiply', a, b),
     t3T1: (a, b) =>
-        _redispatchStrings(multiplication.dispatch, 'multiply', a, b),
+        _redispatchStrings(_multiplicationDispatch, 'multiply', a, b),
     t3T2: (a, b) =>
-        _redispatchStrings(multiplication.dispatch, 'multiply', a, b),
+        _redispatchStrings(_multiplicationDispatch, 'multiply', a, b),
     t3T3: (a, b) =>
-        _redispatchStrings(multiplication.dispatch, 'multiply', a, b),
+        _redispatchStrings(_multiplicationDispatch, 'multiply', a, b),
   );
 
   static final ArithmeticFourOperationsTypeDispatch division = TypeDispatch3(

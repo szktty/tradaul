@@ -23,7 +23,10 @@ void main() {
     });
 
     tearDown(() {
-      fs.file(testWriteFile).deleteSync();
+      final file = fs.file(testWriteFile);
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
     });
 
     tearDownAll(() {
@@ -77,9 +80,13 @@ void main() {
 
       test('non-existing file with read mode', () async {
         final source = '''
-    return io.open("$testWriteFile", "r")
+    local file, err = io.open("$testWriteFile", "r")
+    return file, err
     ''';
-        expect(await luaExecute(source), luaEquals([null]));
+        final result = await luaExecute(source);
+        expect(result.length, 2);
+        expect(result[0].luaType.name, 'nil');
+        expect(result[1].luaType.name, 'string');
       });
 
       test('non-existing file with append mode', () async {
@@ -149,7 +156,7 @@ void main() {
     test('io.output and io.write', () async {
       final source = '''
     io.output("$testWriteFile")
-    io.write("Some data")
+    io.write("Hello, world!")
     io.close()
     io.input("$testWriteFile")
     return io.read("*a")
@@ -177,7 +184,7 @@ void main() {
         file:close()
         return result
       ''';
-        expect(await luaExecute(source), luaEquals([testFileContent]));
+        expect(await luaExecute(source), luaEquals(['world!']));
       });
 
       test('set to end', () async {
@@ -188,7 +195,7 @@ void main() {
         file:close()
         return result
       ''';
-        expect(await luaExecute(source), luaEquals([testFileContent]));
+        expect(await luaExecute(source), luaEquals(['']));
       });
 
       test('invalid mode', () async {
@@ -217,9 +224,7 @@ void main() {
     ''';
       expect(
         await luaExecute(source),
-        luaEquals([
-          ['line1', 'line2', 'line3'],
-        ]),
+        luaEquals(['line1', 'line2', 'line3']),
       );
     });
 

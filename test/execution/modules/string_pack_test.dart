@@ -11,7 +11,7 @@ void main() {
       local packed = string.pack(">i4", 12345678)
       return string.unpack(">i4", packed)
     ''';
-        expect(await luaExecute(source), luaEquals([12345678]));
+        expect(await luaExecute(source), luaEquals([12345678, 5]));
       });
 
       test('little endian format', () async {

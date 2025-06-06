@@ -19,6 +19,14 @@ Tradaul is a Lua 5.4 interpreter implementation written in Dart, designed as a l
 - `dart test test/specific_test.dart` - Run specific test file
 - `dart test test/language/` - Run tests in specific directory
 
+#### Two Testing Methods
+1. **Internal test suite**: Run tests in the `test/` directory using `dart test`
+2. **Official Lua test suite**: Run lua-5.4.6-tests using the `tradaul` CLI command
+   - Build the CLI with `make cli`
+   - Not all tests will pass as some APIs are unsupported
+   - If an API passes `dart test` but fails the official test suite, the internal test is likely incorrect
+   - Refer to official Lua documentation and test suite code for corrections
+
 ### Linting
 - `dart analyze` - Run static analysis (uses very_good_analysis)
 - Code must pass strict linting rules; unawaited_futures are treated as errors

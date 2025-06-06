@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:result_dart/result_dart.dart';
 import 'package:tradaul/src/runtime/lua_context.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
@@ -23,15 +25,20 @@ class LuaStringModule extends LuaNativeModule {
     module.addNativeCalls({
       'byte': _luaByte,
       'char': _luaChar,
+      'dump': _luaDump,
       'find': _luaFind,
       'format': _luaFormat,
       'gmatch': _luaGmatch,
       'gsub': _luaGsub,
       'len': _luaLen,
       'lower': _luaLower,
+      'match': _luaMatch,
+      'pack': _luaPack,
+      'packsize': _luaPacksize,
       'rep': _luaRep,
       'reverse': _luaReverse,
       'sub': _luaSub,
+      'unpack': _luaUnpack,
       'upper': _luaUpper,
     });
     context.environment.variables.stringKeySet('string', module);
@@ -664,4 +671,988 @@ Future<LuaCallResult?> _luaSub(
   }
 
   return Success([LuaString(string.substring(i - 1, j))]);
+}
+
+Future<LuaCallResult?> _luaMatch(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  final stringBase = arguments.getRawValue<String>(0);
+  if (stringBase == null || stringBase.isError()) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.match',
+        order: 1,
+        expected: 'string',
+        actual: stringBase?.exceptionOrNull()?.luaType.name,
+      ),
+    );
+  }
+  final string = stringBase.getOrThrow();
+
+  final patternBase = arguments.getRawValue<String>(1);
+  if (patternBase == null || patternBase.isError()) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.match',
+        order: 2,
+        expected: 'string',
+        actual: patternBase?.exceptionOrNull()?.luaType.name,
+      ),
+    );
+  }
+  final pattern = patternBase.getOrThrow();
+
+  final initBase = arguments.getIntegerRepresentation(2);
+  if (initBase != null && initBase.isError()) {
+    return Failure(
+      LuaException.noIntegerRepresentation(
+        function: 'string.match',
+        order: 3,
+      ),
+    );
+  }
+  var init = initBase?.getOrThrow().toInt() ?? 1;
+
+  // Handle negative positions
+  if (init < 0) {
+    init = string.length + init + 1;
+    if (init < 1) {
+      init = 1;
+    }
+  }
+
+  final compileResult = LuaStringPattern.compile(pattern);
+  if (compileResult.isError()) {
+    return Failure(
+      LuaException(
+        LuaExceptionType.runtimeError,
+        compileResult.exceptionOrNull()!,
+      ),
+    );
+  }
+
+  final code = compileResult.getOrThrow();
+  final matchResult = code.match(string, start: init - 1);
+  if (matchResult.isError()) {
+    return Failure(
+      LuaException(
+        LuaExceptionType.runtimeError,
+        matchResult.exceptionOrNull()!,
+      ),
+    );
+  }
+
+  final match = matchResult.getOrThrow();
+  if (match.matched) {
+    if (match.captures.isNotEmpty) {
+      // Return captures only
+      return Success(match.captures.map((capture) {
+        if (capture is LuaStringPatternCaptureIndex) {
+          return LuaInteger.fromInt(capture.index + 1);
+        } else {
+          return LuaString((capture as LuaStringPatternCaptureString).string!);
+        }
+      }).toList());
+    } else {
+      // Return the whole match
+      return Success([LuaString(string.substring(match.start, match.end + 1))]);
+    }
+  } else {
+    return Success([LuaNil()]);
+  }
+}
+
+Future<LuaCallResult?> _luaDump(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  if (arguments.length < 1) {
+    return Failure(
+      LuaException.wrongNumberOfArguments(
+        function: 'string.dump',
+        expected: '1 or 2',
+      ),
+    );
+  }
+
+  final func = arguments.get<LuaFunction>(0);
+  if (func == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.dump',
+        order: 1,
+        expected: 'function',
+      ),
+    );
+  }
+
+  // string.dump is not supported in Tradaul
+  // as bytecode format is different from standard Lua
+  return Failure(
+    LuaException(
+      LuaExceptionType.runtimeError,
+      'string.dump is not supported',
+    ),
+  );
+}
+
+Future<LuaCallResult?> _luaPack(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  if (arguments.length < 1) {
+    return Failure(
+      LuaException.wrongNumberOfArguments(
+        function: 'string.pack',
+        expected: 'at least 1',
+      ),
+    );
+  }
+
+  final format = arguments.getString(0);
+  if (format == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.pack',
+        order: 1,
+        expected: 'string',
+      ),
+    );
+  }
+
+  try {
+    final values = arguments.arguments.sublist(1);
+    final result = _packBinaryData(format, values);
+    return Success([LuaString(result)]);
+  } on Exception catch (e) {
+    return Failure(
+      LuaException(
+        LuaExceptionType.runtimeError,
+        'bad format string in pack: $e',
+      ),
+    );
+  }
+}
+
+Future<LuaCallResult?> _luaPacksize(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  if (arguments.length < 1) {
+    return Failure(
+      LuaException.wrongNumberOfArguments(
+        function: 'string.packsize',
+        expected: '1',
+      ),
+    );
+  }
+
+  final format = arguments.getString(0);
+  if (format == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.packsize',
+        order: 1,
+        expected: 'string',
+      ),
+    );
+  }
+
+  try {
+    final size = _calculatePackSize(format);
+    return Success([LuaInteger.fromInt(size)]);
+  } on Exception catch (e) {
+    return Failure(
+      LuaException(
+        LuaExceptionType.runtimeError,
+        'bad format string in packsize: $e',
+      ),
+    );
+  }
+}
+
+Future<LuaCallResult?> _luaUnpack(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  if (arguments.length < 2) {
+    return Failure(
+      LuaException.wrongNumberOfArguments(
+        function: 'string.unpack',
+        expected: 'at least 2',
+      ),
+    );
+  }
+
+  final format = arguments.getString(0);
+  if (format == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.unpack',
+        order: 1,
+        expected: 'string',
+      ),
+    );
+  }
+
+  final data = arguments.getString(1);
+  if (data == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'string.unpack',
+        order: 2,
+        expected: 'string',
+      ),
+    );
+  }
+
+  final posBase = arguments.getIntegerRepresentation(2);
+  final pos = posBase?.getOrThrow().toInt() ?? 1;
+  
+  try {
+    final result = _unpackBinaryData(format, data, pos - 1);
+    return Success(result);
+  } on Exception catch (e) {
+    return Failure(
+      LuaException(
+        LuaExceptionType.runtimeError,
+        'bad format string in unpack: $e',
+      ),
+    );
+  }
+}
+
+String _packBinaryData(String format, List<LuaValue> values) {
+  final buffer = <int>[];
+  var valueIndex = 0;
+  var i = 0;
+  var bigEndian = true; // Default to big endian
+  
+  while (i < format.length) {
+    final char = format[i];
+    
+    switch (char) {
+      case '>':
+        bigEndian = true; // Big endian
+        i++;
+        continue;
+      case '<':
+        bigEndian = false; // Little endian
+        i++;
+        continue;
+      case '=':
+        bigEndian = true; // Native endian (default to big)
+        i++;
+        continue;
+        
+      case 'i':
+        // Signed integer
+        var size = 4;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = size - 1; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < size; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format i$size');
+          }
+        }
+        break;
+        
+      case 'I':
+        // Unsigned integer
+        var size = 4;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = size - 1; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < size; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format I$size');
+          }
+        }
+        break;
+        
+      case 'b':
+        // Signed byte
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            buffer.add(value.value.toInt() & 0xFF);
+          } else {
+            throw Exception('expected integer for format b');
+          }
+        }
+        break;
+        
+      case 'B':
+        // Unsigned byte
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            buffer.add(value.value.toInt() & 0xFF);
+          } else {
+            throw Exception('expected integer for format B');
+          }
+        }
+        break;
+        
+      case 'h':
+        // Signed short (2 bytes)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              buffer.add((intValue >> 8) & 0xFF);
+              buffer.add(intValue & 0xFF);
+            } else {
+              buffer.add(intValue & 0xFF);
+              buffer.add((intValue >> 8) & 0xFF);
+            }
+          } else {
+            throw Exception('expected integer for format h');
+          }
+        }
+        break;
+        
+      case 'H':
+        // Unsigned short (2 bytes)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              buffer.add((intValue >> 8) & 0xFF);
+              buffer.add(intValue & 0xFF);
+            } else {
+              buffer.add(intValue & 0xFF);
+              buffer.add((intValue >> 8) & 0xFF);
+            }
+          } else {
+            throw Exception('expected integer for format H');
+          }
+        }
+        break;
+        
+      case 'l':
+        // Signed long (4 bytes)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = 3; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < 4; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format l');
+          }
+        }
+        break;
+        
+      case 'L':
+        // Unsigned long (4 bytes)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = 3; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < 4; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format L');
+          }
+        }
+        break;
+        
+      case 'j':
+      case 'J':
+        // lua_Integer / lua_Unsigned (8 bytes)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = 7; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < 8; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format $char');
+          }
+        }
+        break;
+        
+      case 'T':
+        // size_t (4 bytes for simplicity)
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaInteger) {
+            final intValue = value.value.toInt();
+            if (bigEndian) {
+              for (var j = 3; j >= 0; j--) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            } else {
+              for (var j = 0; j < 4; j++) {
+                buffer.add((intValue >> (j * 8)) & 0xFF);
+              }
+            }
+          } else {
+            throw Exception('expected integer for format T');
+          }
+        }
+        break;
+        
+      case 'f':
+        // Float (4 bytes) - basic implementation
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaNumber) {
+            // Simple float conversion - not IEEE 754 compliant
+            final doubleValue = value is LuaFloat ? value.value : (value as LuaInteger).value.toDouble();
+            final intValue = (doubleValue * 1000).toInt();
+            for (var j = 0; j < 4; j++) {
+              buffer.add((intValue >> (j * 8)) & 0xFF);
+            }
+          } else {
+            throw Exception('expected number for format f');
+          }
+        }
+        break;
+        
+      case 'd':
+        // Double (8 bytes) - basic implementation
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaNumber) {
+            // Simple double conversion - not IEEE 754 compliant
+            final doubleValue = value is LuaFloat ? value.value : (value as LuaInteger).value.toDouble();
+            final intValue = (doubleValue * 1000000).toInt();
+            for (var j = 0; j < 8; j++) {
+              buffer.add((intValue >> (j * 8)) & 0xFF);
+            }
+          } else {
+            throw Exception('expected number for format d');
+          }
+        }
+        break;
+        
+      case 'z':
+        // Zero-terminated string
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaString) {
+            buffer.addAll(value.value.codeUnits);
+            buffer.add(0); // null terminator
+          } else {
+            throw Exception('expected string for format z');
+          }
+        }
+        break;
+        
+      case 'c':
+        // Fixed-length string
+        var size = 1;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaString) {
+            final bytes = value.value.codeUnits;
+            buffer.addAll(bytes.take(size));
+            // Pad with zeros if needed
+            for (var j = bytes.length; j < size; j++) {
+              buffer.add(0);
+            }
+          } else {
+            throw Exception('expected string for format c$size');
+          }
+        }
+        break;
+        
+      case 's':
+        // Length-prefixed string
+        var lengthSize = 1;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          lengthSize = int.parse(format[i + 1]);
+          i++;
+        }
+        if (valueIndex < values.length) {
+          final value = values[valueIndex++];
+          if (value is LuaString) {
+            final length = value.value.length;
+            // Add length prefix
+            for (var j = 0; j < lengthSize; j++) {
+              buffer.add((length >> (j * 8)) & 0xFF);
+            }
+            // Add string data
+            buffer.addAll(value.value.codeUnits);
+          } else {
+            throw Exception('expected string for format s$lengthSize');
+          }
+        }
+        break;
+        
+      case 'x':
+        // Padding byte
+        buffer.add(0);
+        break;
+        
+      case '!':
+        // Alignment - skip the number
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          i++;
+        }
+        break;
+        
+      default:
+        if ('0123456789'.contains(char)) {
+          // Number - already handled above
+        } else {
+          throw Exception('invalid format character: $char');
+        }
+    }
+    
+    i++;
+  }
+  
+  return String.fromCharCodes(buffer);
+}
+
+int _calculatePackSize(String format) {
+  var totalSize = 0;
+  var i = 0;
+  
+  while (i < format.length) {
+    final char = format[i];
+    
+    switch (char) {
+      case '>':
+      case '<':
+      case '=':
+        // Endian markers don't contribute to size
+        i++;
+        continue;
+        
+      case 'b':
+      case 'B':
+        // 1 byte
+        totalSize += 1;
+        break;
+        
+      case 'h':
+      case 'H':
+        // 2 bytes
+        totalSize += 2;
+        break;
+        
+      case 'l':
+      case 'L':
+        // 4 bytes
+        totalSize += 4;
+        break;
+        
+      case 'j':
+      case 'J':
+        // lua_Integer/lua_Unsigned (8 bytes)
+        totalSize += 8;
+        break;
+        
+      case 'T':
+        // size_t (4 bytes for simplicity)
+        totalSize += 4;
+        break;
+        
+      case 'f':
+        // float (4 bytes)
+        totalSize += 4;
+        break;
+        
+      case 'd':
+        // double (8 bytes)
+        totalSize += 8;
+        break;
+        
+      case 'i':
+      case 'I':
+        // Variable-size integer
+        var size = 4; // default
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        totalSize += size;
+        break;
+        
+      case 'c':
+        // Fixed-length string
+        var size = 1; // default
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        totalSize += size;
+        break;
+        
+      case 's':
+        // Variable-length string with length prefix
+        var lengthSize = 1; // default
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          lengthSize = int.parse(format[i + 1]);
+          i++;
+        }
+        // Cannot determine size without actual string length
+        throw Exception('cannot determine size for variable-length string format s$lengthSize');
+        
+      case 'z':
+        // Zero-terminated string - cannot determine size
+        throw Exception('cannot determine size for zero-terminated string format z');
+        
+      case 'x':
+        // Padding byte
+        totalSize += 1;
+        break;
+        
+      case '!':
+        // Alignment - skip the number
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          i++;
+        }
+        break;
+        
+      default:
+        if ('0123456789'.contains(char)) {
+          // Number - already handled above
+        } else {
+          throw Exception('invalid format character: $char');
+        }
+    }
+    
+    i++;
+  }
+  
+  return totalSize;
+}
+
+List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
+  final result = <LuaValue>[];
+  final bytes = data.codeUnits;
+  var offset = pos;
+  var i = 0;
+  var bigEndian = true; // Default to big endian
+  
+  while (i < format.length && offset < bytes.length) {
+    final char = format[i];
+    
+    switch (char) {
+      case '>':
+        bigEndian = true; // Big endian
+        i++;
+        continue;
+      case '<':
+        bigEndian = false; // Little endian
+        i++;
+        continue;
+      case '=':
+        bigEndian = true; // Native endian (default to big)
+        i++;
+        continue;
+        
+      case 'i':
+        // Signed integer
+        var size = 4;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (offset + size <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            for (var j = 0; j < size; j++) {
+              value = (value << 8) | bytes[offset + j];
+            }
+          } else {
+            for (var j = 0; j < size; j++) {
+              value |= (bytes[offset + j] << (j * 8));
+            }
+          }
+          // Handle sign extension for negative values
+          // Only apply sign extension if the most significant bit is set
+          if (size < 8 && (value & (1 << (size * 8 - 1))) != 0) {
+            // Create mask for sign extension
+            final signMask = (-1 << (size * 8));
+            value = value | signMask;
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += size;
+        }
+        break;
+        
+      case 'I':
+        // Unsigned integer
+        var size = 4;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (offset + size <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            for (var j = 0; j < size; j++) {
+              value = (value << 8) | bytes[offset + j];
+            }
+          } else {
+            for (var j = 0; j < size; j++) {
+              value |= (bytes[offset + j] << (j * 8));
+            }
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += size;
+        }
+        break;
+        
+      case 'b':
+        // Signed byte
+        if (offset < bytes.length) {
+          var value = bytes[offset];
+          if (value > 127) value -= 256; // Sign extension
+          result.add(LuaInteger.fromInt(value));
+          offset++;
+        }
+        break;
+        
+      case 'B':
+        // Unsigned byte
+        if (offset < bytes.length) {
+          result.add(LuaInteger.fromInt(bytes[offset]));
+          offset++;
+        }
+        break;
+        
+      case 'h':
+        // Signed short
+        if (offset + 2 <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            value = (bytes[offset] << 8) | bytes[offset + 1];
+          } else {
+            value = bytes[offset] | (bytes[offset + 1] << 8);
+          }
+          if (value > 32767) value -= 65536; // Sign extension
+          result.add(LuaInteger.fromInt(value));
+          offset += 2;
+        }
+        break;
+        
+      case 'H':
+        // Unsigned short
+        if (offset + 2 <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            value = (bytes[offset] << 8) | bytes[offset + 1];
+          } else {
+            value = bytes[offset] | (bytes[offset + 1] << 8);
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += 2;
+        }
+        break;
+        
+      case 'l':
+      case 'L':
+        // Long (4 bytes)
+        if (offset + 4 <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            for (var j = 0; j < 4; j++) {
+              value = (value << 8) | bytes[offset + j];
+            }
+          } else {
+            for (var j = 0; j < 4; j++) {
+              value |= (bytes[offset + j] << (j * 8));
+            }
+          }
+          if (char == 'l' && (value & 0x80000000) != 0) {
+            value -= 0x100000000; // Sign extension for 'l'
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += 4;
+        }
+        break;
+        
+      case 'j':
+      case 'J':
+        // lua_Integer / lua_Unsigned (8 bytes)
+        if (offset + 8 <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            for (var j = 0; j < 8; j++) {
+              value = (value << 8) | bytes[offset + j];
+            }
+          } else {
+            for (var j = 0; j < 8; j++) {
+              value |= (bytes[offset + j] << (j * 8));
+            }
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += 8;
+        }
+        break;
+        
+      case 'T':
+        // size_t (4 bytes)
+        if (offset + 4 <= bytes.length) {
+          var value = 0;
+          if (bigEndian) {
+            for (var j = 0; j < 4; j++) {
+              value = (value << 8) | bytes[offset + j];
+            }
+          } else {
+            for (var j = 0; j < 4; j++) {
+              value |= (bytes[offset + j] << (j * 8));
+            }
+          }
+          result.add(LuaInteger.fromInt(value));
+          offset += 4;
+        }
+        break;
+        
+      case 'f':
+        // Float - basic implementation
+        if (offset + 4 <= bytes.length) {
+          var value = 0;
+          for (var j = 0; j < 4; j++) {
+            value |= (bytes[offset + j] << (j * 8));
+          }
+          result.add(LuaFloat(value / 1000.0));
+          offset += 4;
+        }
+        break;
+        
+      case 'd':
+        // Double - basic implementation
+        if (offset + 8 <= bytes.length) {
+          var value = 0;
+          for (var j = 0; j < 8; j++) {
+            value |= (bytes[offset + j] << (j * 8));
+          }
+          result.add(LuaFloat(value / 1000000.0));
+          offset += 8;
+        }
+        break;
+        
+      case 'z':
+        // Zero-terminated string
+        final start = offset;
+        while (offset < bytes.length && bytes[offset] != 0) {
+          offset++;
+        }
+        result.add(LuaString(String.fromCharCodes(bytes.sublist(start, offset))));
+        if (offset < bytes.length) offset++; // Skip null terminator
+        break;
+        
+      case 'c':
+        // Fixed-length string
+        var size = 1;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          size = int.parse(format[i + 1]);
+          i++;
+        }
+        if (offset + size <= bytes.length) {
+          result.add(LuaString(String.fromCharCodes(bytes.sublist(offset, offset + size))));
+          offset += size;
+        }
+        break;
+        
+      case 's':
+        // Length-prefixed string
+        var lengthSize = 1;
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          lengthSize = int.parse(format[i + 1]);
+          i++;
+        }
+        if (offset + lengthSize <= bytes.length) {
+          var length = 0;
+          for (var j = 0; j < lengthSize; j++) {
+            length |= (bytes[offset + j] << (j * 8));
+          }
+          offset += lengthSize;
+          if (offset + length <= bytes.length) {
+            result.add(LuaString(String.fromCharCodes(bytes.sublist(offset, offset + length))));
+            offset += length;
+          }
+        }
+        break;
+        
+      case 'x':
+        // Padding byte - just skip
+        offset++;
+        break;
+        
+      case '!':
+        // Alignment - skip the number
+        if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
+          i++;
+        }
+        break;
+        
+      default:
+        if ('0123456789'.contains(char)) {
+          // Number - already handled above
+        } else {
+          throw Exception('invalid format character: $char');
+        }
+    }
+    
+    i++;
+  }
+  
+  // Add the next position as the last return value
+  result.add(LuaInteger.fromInt(offset + 1));
+  
+  return result;
 }

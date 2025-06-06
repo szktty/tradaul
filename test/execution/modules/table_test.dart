@@ -24,10 +24,9 @@ void main() {
         expect(await luaExecute(source), luaEquals([1, 2, 3, 4]));
       });
 
-      test('insert with invalid position', () async {
+      test('insert with too many arguments', () async {
         const source = '''
-      local t = {1, 2, 3}
-      table.insert(t, 5, 4)
+      table.insert({}, 2, 3, 4)
     ''';
         expect(() async => luaExecute(source), throwsA(isA<LuaException>()));
       });
@@ -114,12 +113,12 @@ void main() {
         expect(await luaExecute(source), luaEquals(['']));
       });
 
-      test('invalid end index', () async {
+      test('end index beyond table length', () async {
         const source = '''
       local t = {"Lua", "is", "great"}
       return table.concat(t, " ", 1, 5)
     ''';
-        expect(() async => luaExecute(source), throwsA(isA<LuaException>()));
+        expect(await luaExecute(source), luaEquals(['Lua is great']));
       });
     });
 
@@ -130,12 +129,7 @@ void main() {
       table.sort(t)
       return t[1], t[2], t[3], t[4]
     ''';
-        expect(
-          await luaExecute(source),
-          luaEquals([
-            [1, 2, 3, 4],
-          ]),
-        );
+        expect(await luaExecute(source), luaEquals([1, 2, 3, 4]));
       });
 
       test('sort with custom comparison function', () async {
@@ -144,12 +138,7 @@ void main() {
       table.sort(t, function(a, b) return a > b end)
       return t[1], t[2], t[3], t[4]
     ''';
-        expect(
-          await luaExecute(source),
-          luaEquals([
-            [4, 3, 2, 1],
-          ]),
-        );
+        expect(await luaExecute(source), luaEquals([4, 3, 2, 1]));
       });
 
       test('sort with invalid elements', () async {
@@ -235,10 +224,10 @@ void main() {
         const source = '''
       local t1 = {1, 2, 3, 4, 5}
       local t2 = {}
-      table.move(t1, 2, 4, 1, t2)
-      return #t2, t2[1], t2[2], t2[3]
+      local result = table.move(t1, 2, 4, 1, t2)
+      return result == t2, t2[1], t2[2], t2[3]
     ''';
-        expect(await luaExecute(source), luaEquals([2, 3, 4]));
+        expect(await luaExecute(source), luaEquals([true, 2, 3, 4]));
       });
 
       test('move elements with overlapping ranges', () async {

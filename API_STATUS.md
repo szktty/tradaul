@@ -3,9 +3,9 @@
 ## Coverage
 
 - Total API 145
-- Implemented 73 (50%)
-- Unimplemented 64 (44%)
-- Not supported 8 (6%)
+- Implemented 127 (88%)
+- Unimplemented 10 (7%)
+- Not supported 8 (5%)
 
 ## Table
 
@@ -50,42 +50,42 @@
 | `coroutine.wrap`        | ✅      |                                                              |
 | `coroutine.yield`       | ✅      |                                                              |
 | `debug.debug`           | ❌      |                                                              |
-| `debug.gethook`         |        |                                                              |
-| `debug.getinfo`         |        |                                                              |
+| `debug.gethook`         | ⚠      | Basic implementation (no actual hook support)                |
+| `debug.getinfo`         | ⚠      | Basic implementation (minimal debug info)                     |
 | `debug.getlocal`        | ❌      |                                                              |
-| `debug.getmetatable`    |        |                                                              |
+| `debug.getmetatable`    | ✅      |                                                              |
 | `debug.getregistry`     | ❌      |                                                              |
 | `debug.getupvalue`      | ❌      |                                                              |
-| `debug.getuservalue`    |        |                                                              |
+| `debug.getuservalue`    | ⚠      | Basic implementation (no actual user values)                 |
 | `debug.sethook`         | ❌      |                                                              |
-| `debug.setlocal`        |        |                                                              |
-| `debug.setmetatable`    |        |                                                              |
+| `debug.setlocal`        | ⚠      | Basic implementation (always returns nil)                    |
+| `debug.setmetatable`    | ✅      |                                                              |
 | `debug.setupvalue`      | ❌      |                                                              |
-| `debug.setuservalue`    |        |                                                              |
-| `debug.traceback`       |        |                                                              |
+| `debug.setuservalue`    | ⚠      | Basic implementation (no actual user values)                 |
+| `debug.traceback`       | ⚠      | Basic implementation (simple stack trace)                    |
 | `debug.upvalueid`       | ❌      |                                                              |
 | `debug.upvaluejoin`     | ❌      |                                                              |
-| `io.close`              |        |                                                              |
-| `io.flush`              |        |                                                              |
-| `io.input`              |        |                                                              |
-| `io.lines`              |        |                                                              |
-| `io.open`               |        |                                                              |
-| `io.output`             |        |                                                              |
-| `io.popen`              |        |                                                              |
-| `io.read`               |        |                                                              |
-| `io.stderr`             |        |                                                              |
-| `io.stdin`              |        |                                                              |
-| `io.stdout`             |        |                                                              |
-| `io.tmpfile`            |        |                                                              |
-| `io.type`               |        |                                                              |
-| `io.write`              |        |                                                              |
-| `file:close`            |        |                                                              |
-| `file:flush`            |        |                                                              |
-| `file:lines`            |        |                                                              |
-| `file:read`             |        |                                                              |
-| `file:seek`             |        |                                                              |
-| `file:setvbuf`          |        |                                                              |
-| `file:write`            |        |                                                              |
+| `io.close`              | ✅      |                                                              |
+| `io.flush`              | ✅      |                                                              |
+| `io.input`              | ✅      |                                                              |
+| `io.lines`              | ✅      |                                                              |
+| `io.open`               | ✅      |                                                              |
+| `io.output`             | ✅      |                                                              |
+| `io.popen`              | ✅      |                                                              |
+| `io.read`               | ✅      |                                                              |
+| `io.stderr`             | ✅      |                                                              |
+| `io.stdin`              | ✅      |                                                              |
+| `io.stdout`             | ✅      |                                                              |
+| `io.tmpfile`            | ✅      |                                                              |
+| `io.type`               | ✅      |                                                              |
+| `io.write`              | ✅      |                                                              |
+| `file:close`            | ✅      |                                                              |
+| `file:flush`            | ✅      |                                                              |
+| `file:lines`            | ✅      |                                                              |
+| `file:read`             | ✅      |                                                              |
+| `file:seek`             | ✅      |                                                              |
+| `file:setvbuf`          | ✅      |                                                              |
+| `file:write`            | ✅      |                                                              |
 | `math.abs`              | ✅      |                                                              |
 | `math.acos`             | ✅      |                                                              |
 | `math.asin`             | ✅      |                                                              |
@@ -113,17 +113,17 @@
 | `math.tointeger`        | ✅      |                                                              |
 | `math.type`             | ✅      |                                                              |
 | `math.ult`              | ✅      |                                                              |
-| `os.clock`              |        |                                                              |
-| `os.date`               |        |                                                              |
-| `os.difftime`           |        |                                                              |
-| `os.execute`            |        |                                                              |
-| `os.exit`               |        |                                                              |
-| `os.getenv`             |        |                                                              |
-| `os.remove`             |        |                                                              |
-| `os.rename`             |        |                                                              |
-| `os.setlocale`          |        |                                                              |
-| `os.time`               |        |                                                              |
-| `os.tmpname`            |        |                                                              |
+| `os.clock`              | ✅      |                                                              |
+| `os.date`               | ✅      |                                                              |
+| `os.difftime`           | ✅      |                                                              |
+| `os.execute`            | ✅      |                                                              |
+| `os.exit`               | ✅      |                                                              |
+| `os.getenv`             | ✅      |                                                              |
+| `os.remove`             | ✅      |                                                              |
+| `os.rename`             | ✅      |                                                              |
+| `os.setlocale`          | ✅      |                                                              |
+| `os.time`               | ✅      |                                                              |
+| `os.tmpname`            | ✅      |                                                              |
 | `package.config`        | ✅      |                                                              |
 | `package.cpath`         | ⚠      | Not used                                                     |
 | `package.loaded`        | ✅      |                                                              |
@@ -132,33 +132,33 @@
 | `package.preload`       | ✅      |                                                              |
 | `package.searchers`     | ✅      |                                                              |
 | `package.searchpath`    | ✅      |                                                              |
-| `string.byte`           |        |                                                              |
-| `string.char`           |        |                                                              |
-| `string.dump`           |        |                                                              |
-| `string.find`           | ⚠      | partial match is not yet implemented                         |
+| `string.byte`           | ✅      |                                                              |
+| `string.char`           | ✅      |                                                              |
+| `string.dump`           | ⚠      | Not supported (bytecode format differs from standard Lua)    |
+| `string.find`           | ✅      |                                                              |
 | `string.format`         | ✅      |                                                              |
-| `string.gmatch`         |        |                                                              |
+| `string.gmatch`         | ✅      |                                                              |
 | `string.gsub`           | ✅      |                                                              |
-| `string.len`            |        |                                                              |
-| `string.lower`          |        |                                                              |
-| `string.match`          |        |                                                              |
-| `string.pack`           |        |                                                              |
-| `string.packsize`       |        |                                                              |
-| `string.rep`            |        |                                                              |
-| `string.reverse`        |        |                                                              |
-| `string.sub`            |        |                                                              |
-| `string.unpack`         |        |                                                              |
-| `string.upper`          |        |                                                              |
-| `table.concat`          |        |                                                              |
+| `string.len`            | ✅      |                                                              |
+| `string.lower`          | ✅      |                                                              |
+| `string.match`          | ✅      |                                                              |
+| `string.pack`           | ⚠      | Basic implementation (full binary format support pending)     |
+| `string.packsize`       | ⚠      | Basic implementation (full binary format support pending)     |
+| `string.rep`            | ✅      |                                                              |
+| `string.reverse`        | ✅      |                                                              |
+| `string.sub`            | ✅      |                                                              |
+| `string.unpack`         | ⚠      | Basic implementation (full binary format support pending)     |
+| `string.upper`          | ✅      |                                                              |
+| `table.concat`          | ✅      |                                                              |
 | `table.insert`          | ✅      |                                                              |
-| `table.move`            |        |                                                              |
-| `table.pack`            |        |                                                              |
+| `table.move`            | ✅      |                                                              |
+| `table.pack`            | ✅      |                                                              |
 | `table.remove`          | ✅      |                                                              |
-| `table.sort`            |        |                                                              |
+| `table.sort`            | ✅      |                                                              |
 | `table.unpack`          | ✅      |                                                              |
-| `utf8.char`             |        |                                                              |
-| `utf8.charpattern`      |        |                                                              |
-| `utf8.codepoint`        |        |                                                              |
-| `utf8.codes`            |        |                                                              |
-| `utf8.len`              |        |                                                              |
-| `utf8.offset`           |        |                                                              |
+| `utf8.char`             | ✅      |                                                              |
+| `utf8.charpattern`      | ✅      |                                                              |
+| `utf8.codepoint`        | ✅      |                                                              |
+| `utf8.codes`            | ✅      |                                                              |
+| `utf8.len`              | ✅      |                                                              |
+| `utf8.offset`           | ✅      |                                                              |

@@ -1,6 +1,7 @@
 import 'package:result_dart/result_dart.dart';
 import 'package:tradaul/src/runtime/lua_context.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
+import 'package:tradaul/src/runtime/lua_invocation.dart';
 import 'package:tradaul/src/runtime/lua_module.dart';
 import 'package:tradaul/src/runtime/lua_native.dart';
 import 'package:tradaul/src/runtime/lua_table.dart';
@@ -15,12 +16,14 @@ class LuaTableModule extends LuaNativeModule {
       return Success(LuaNil());
     }
 
-    final module = LuaTable();
-    module.addNativeCalls({
+    final module = LuaTable()
+      ..addNativeCalls({
       'concat': _luaConcat,
       'insert': _luaInsert,
       'move': _luaMove,
+      'pack': _luaPack,
       'remove': _luaRemove,
+      'sort': _luaSort,
       'unpack': _luaUnpack,
     });
     context.environment.variables.stringKeySet('table', module);
@@ -280,19 +283,24 @@ Future<LuaCallResult?> _luaUnpack(
       ? arguments.getInt(2) ?? table.length
       : table.length;
 
-  // In Lua, sequence length is determined by table.length
-  // If table has no sequence (all nil), length is 0
-  final actualLength = table.length;
-  if (actualLength == 0 || j < i) {
+  // In Lua, table.unpack stops at the first nil value unless end is specified
+  if (j < i) {
     return const Success([]);
   }
 
   final result = <LuaValue>[];
-  final endIndex = j > actualLength ? actualLength : j;
+  final endIndex = arguments.length >= 3 ? j : table.length;
+  
   for (var index = i; index <= endIndex; index++) {
     final key = LuaInteger.fromInt(index);
-    final value = table.get(key) ?? LuaNil();
-    result.add(value);
+    final value = table.get(key);
+    
+    // If no explicit end index and we hit nil, stop unpacking
+    if (arguments.length < 3 && (value == null || value is LuaNil)) {
+      break;
+    }
+    
+    result.add(value ?? LuaNil());
   }
 
   return Success(result);
@@ -343,7 +351,7 @@ Future<LuaCallResult?> _luaConcat(
       if (value is LuaString) {
         parts.add(value.value);
       } else if (value is LuaNumber) {
-        parts.add(value.toString());
+        parts.add(value.luaRepresentation);
       } else {
         return Failure(
           LuaException.badArgumentError(
@@ -358,4 +366,182 @@ Future<LuaCallResult?> _luaConcat(
   }
 
   return Success([LuaString(parts.join(sep))]);
+}
+
+Future<LuaCallResult?> _luaPack(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  final result = LuaTable();
+  
+  // Add all arguments to the table with 1-based indexing
+  for (var i = 0; i < arguments.length; i++) {
+    final key = LuaInteger.fromInt(i + 1);
+    result.set(key, arguments.arguments[i]);
+  }
+  
+  // Set the 'n' field to the number of arguments
+  result.stringKeySet('n', LuaInteger.fromInt(arguments.length));
+  
+  return Success([result]);
+}
+
+Future<LuaCallResult?> _luaSort(
+  LuaContext context,
+  LuaArguments arguments,
+) async {
+  if (arguments.length < 1) {
+    return Failure(
+      LuaException.wrongNumberOfArguments(
+        function: 'table.sort',
+        expected: '1 or 2',
+      ),
+    );
+  }
+
+  final table = arguments.get<LuaTable>(0);
+  if (table == null) {
+    return Failure(
+      LuaException.badArgumentTypeError(
+        function: 'table.sort',
+        order: 1,
+        expected: 'table',
+      ),
+    );
+  }
+
+  // Get the array part of the table
+  final list = <LuaValue>[];
+  var i = 1;
+  while (true) {
+    final value = table.get(LuaInteger.fromInt(i));
+    if (value == null || value.isNil) {
+      break;
+    }
+    list.add(value);
+    i++;
+  }
+
+  if (list.isEmpty) {
+    return const Success([]);
+  }
+
+  // Sort the list
+  final comparator = arguments.get<LuaFunction>(1);
+  
+  if (comparator != null) {
+    // Custom comparator function
+    try {
+      await _quickSort(context, list, 0, list.length - 1, comparator);
+    } on Exception {
+      return Failure(
+        LuaException(
+          LuaExceptionType.runtimeError,
+          'invalid order function for sorting',
+        ),
+      );
+    }
+  } else {
+    // Default comparison (less than)
+    try {
+      await _quickSort(context, list, 0, list.length - 1, null);
+    } on Exception {
+      return Failure(
+        LuaException(
+          LuaExceptionType.runtimeError,
+          'attempt to compare incompatible values',
+        ),
+      );
+    }
+  }
+
+  // Write back to table
+  for (var j = 0; j < list.length; j++) {
+    table.set(LuaInteger.fromInt(j + 1), list[j]);
+  }
+
+  return const Success([]);
+}
+
+Future<void> _quickSort(
+  LuaContext context,
+  List<LuaValue> list,
+  int low,
+  int high,
+  LuaFunction? comparator,
+) async {
+  if (low < high) {
+    final pi = await _partition(context, list, low, high, comparator);
+    await _quickSort(context, list, low, pi - 1, comparator);
+    await _quickSort(context, list, pi + 1, high, comparator);
+  }
+}
+
+Future<int> _partition(
+  LuaContext context,
+  List<LuaValue> list,
+  int low,
+  int high,
+  LuaFunction? comparator,
+) async {
+  final pivot = list[high];
+  var i = low - 1;
+
+  for (var j = low; j < high; j++) {
+    final shouldSwap = await _compareValues(
+      context,
+      list[j],
+      pivot,
+      comparator,
+    );
+    
+    if (shouldSwap) {
+      i++;
+      final temp = list[i];
+      list[i] = list[j];
+      list[j] = temp;
+    }
+  }
+
+  final temp = list[i + 1];
+  list[i + 1] = list[high];
+  list[high] = temp;
+
+  return i + 1;
+}
+
+Future<bool> _compareValues(
+  LuaContext context,
+  LuaValue a,
+  LuaValue b,
+  LuaFunction? comparator,
+) async {
+  if (comparator != null) {
+    // Use custom comparator
+    final invocation = LuaValueInvocation(
+      target: comparator,
+      arguments: [a, b],
+    );
+    final result = await context.invoke(invocation);
+    if (result.isError()) {
+      throw result.exceptionOrNull()!;
+    }
+    final values = result.getOrThrow();
+    return values.isNotEmpty && values.first.luaToBoolean;
+  } else {
+    // Default comparison: a < b
+    if (a.isNumber && b.isNumber) {
+      final aNum = a as LuaNumber;
+      final bNum = b as LuaNumber;
+      return aNum.toDouble() < bNum.toDouble();
+    } else if (a.isString && b.isString) {
+      final aStr = a as LuaString;
+      final bStr = b as LuaString;
+      return aStr.value.compareTo(bStr.value) < 0;
+    } else {
+      throw Exception(
+        'attempt to compare ${a.luaType.name} with ${b.luaType.name}',
+      );
+    }
+  }
 }

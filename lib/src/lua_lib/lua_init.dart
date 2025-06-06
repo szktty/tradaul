@@ -1,12 +1,16 @@
 import 'package:tradaul/src/lua_lib/lua_coroutine_module.dart';
+import 'package:tradaul/src/lua_lib/lua_debug_module.dart';
 import 'package:tradaul/src/lua_lib/lua_globals.dart';
+import 'package:tradaul/src/lua_lib/lua_io_module.dart';
 import 'package:tradaul/src/lua_lib/lua_math_module.dart';
+import 'package:tradaul/src/lua_lib/lua_os_module.dart';
 import 'package:tradaul/src/lua_lib/lua_package_module.dart';
 import 'package:tradaul/src/lua_lib/lua_platform_module/lua_platform_module_stub.dart'
     if (dart.library.io) 'package:tradaul/src/lua_lib/lua_platform_module/lua_platform_module_native.dart'
     if (dart.library.html) 'package:tradaul/src/lua_lib/lua_platform_module/lua_platform_module_web.dart';
 import 'package:tradaul/src/lua_lib/lua_string_module.dart';
 import 'package:tradaul/src/lua_lib/lua_table_module.dart';
+import 'package:tradaul/src/lua_lib/lua_utf8_module.dart';
 import 'package:tradaul/src/runtime/lua_context.dart';
 import 'package:tradaul/src/runtime/lua_module.dart';
 
@@ -17,10 +21,14 @@ class LuaLibraryInstaller {
     final modules = <LuaModule>[
       LuaGlobals(),
       LuaCoroutineModule(),
+      LuaDebugModule(),
+      LuaIoModule(),
       LuaMathModule(),
+      LuaOsModule(),
       LuaPackageModule(),
       LuaStringModule(),
       LuaTableModule(),
+      LuaUtf8Module(),
 
       // library-specific modules
       LuaPlatformModule(),

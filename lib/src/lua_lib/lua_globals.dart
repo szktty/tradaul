@@ -568,9 +568,7 @@ Future<LuaCallResult?> _luaSelect(
   LuaContext context,
   LuaArguments arguments,
 ) async {
-  final index = arguments.getInt(0);
-  final length = arguments.getString(0);
-  if (index == null && (length == null || length != '#')) {
+  if (arguments.length == 0) {
     return Failure(
       LuaException.badArgumentTypeError(
         function: 'select',
@@ -580,24 +578,43 @@ Future<LuaCallResult?> _luaSelect(
     );
   }
 
-  if (length != null) {
+  final firstArg = arguments.get(0);
+  
+  // Check if first argument is '#'
+  if (firstArg is LuaString && firstArg.value == '#') {
     return Success([LuaInteger.fromInt(arguments.length - 1)]);
-  } else if (index == 0) {
+  }
+  
+  // Otherwise, expect an integer index
+  final index = arguments.getInt(0);
+  if (index == null) {
     return Failure(
       LuaException.badArgumentTypeError(
         function: 'select',
         order: 1,
         expected: "integer or '#'",
-        actual: 'index out of range',
       ),
     );
+  }
+
+  if (index == 0) {
+    return Failure(
+      LuaException.badArgumentError(
+        function: 'select',
+        order: 1,
+        message: 'index out of range',
+      ),
+    );
+  }
+
+  // Handle negative indices
+  final adjustedIndex = index < 0 ? arguments.length + index : index;
+  
+  // Return arguments from the specified index onward
+  if (adjustedIndex >= 1 && adjustedIndex < arguments.length) {
+    return Success(arguments.arguments.sublist(adjustedIndex));
   } else {
-    final subIndex = index! < 0 ? arguments.length + index : index;
-    if (subIndex < arguments.length) {
-      return Success(arguments.arguments.sublist(subIndex));
-    } else {
-      return const Success([]);
-    }
+    return const Success([]);
   }
 }
 

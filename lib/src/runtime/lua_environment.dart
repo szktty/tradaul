@@ -12,6 +12,7 @@ final class LuaEnvironment {
   late final LuaTable variables;
 
   final Map<dynamic, Map<String, dynamic>> _userDatas = {};
+  final Map<LuaValue, LuaTable> _userdataMetatables = {};
 
   LuaTable? _stringMetatable;
 
@@ -22,6 +23,8 @@ final class LuaEnvironment {
       meta = value.metatable;
     } else if (value is LuaString) {
       meta = _stringMetatable;
+    } else if (value.isUserData) {
+      meta = _userdataMetatables[value];
     }
 
     if (meta != null) {
@@ -41,6 +44,12 @@ final class LuaEnvironment {
         return false;
       }
       value.metatable = metatable;
+    } else if (value.isUserData) {
+      if (metatable != null) {
+        _userdataMetatables[value] = metatable;
+      } else {
+        _userdataMetatables.remove(value);
+      }
     }
 
     return true;
@@ -49,11 +58,13 @@ final class LuaEnvironment {
   void removeMetatable(LuaValue value) {
     if (value is LuaTable) {
       value.metatable = null;
+    } else if (value.isUserData) {
+      _userdataMetatables.remove(value);
     }
   }
 
-  LuaValue? getMetafield(LuaTable table, String name) {
-    final meta = getMetatable(table);
+  LuaValue? getMetafield(LuaValue value, String name) {
+    final meta = getMetatable(value);
     if (meta == null) {
       return null;
     } else if (meta is LuaTable) {
