@@ -117,3 +117,7 @@ void testRepeatLoop() {
     });
   });
 }
+
+void main() {
+  testRepeatLoop();
+}

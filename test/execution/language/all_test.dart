@@ -49,3 +49,7 @@ void testLanguage() {
   testCoroutine();
   testCustomCoroutine();
 }
+
+void main() {
+  testLanguage();
+}

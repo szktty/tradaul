@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
 
+import 'init_context.dart';
 import 'test.dart';
 
 void testFunctionCall() {
@@ -516,4 +517,11 @@ void testFunctionDefinitionBase({required bool isLocal}) {
       });
     });
   });
+}
+
+void main() {
+  testInitContext();
+  testFunctionCall();
+  testFunctionDefinition();
+  testLocalFunctionDefinition();
 }

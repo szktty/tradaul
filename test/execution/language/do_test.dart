@@ -86,3 +86,7 @@ void testDoBlock() {
     });
   });
 }
+
+void main() {
+  testDoBlock();
+}

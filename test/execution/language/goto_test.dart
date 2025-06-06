@@ -242,7 +242,7 @@ do
   ::l1::;
 end
         ''';
-        expect(await luaExecute(source), luaEquals([]));
+        expect(() async => luaExecute(source), throwsA(isA<LuaException>()));
       });
     });
   });

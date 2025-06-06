@@ -579,12 +579,12 @@ Future<LuaCallResult?> _luaSelect(
   }
 
   final firstArg = arguments.get(0);
-  
+
   // Check if first argument is '#'
   if (firstArg is LuaString && firstArg.value == '#') {
     return Success([LuaInteger.fromInt(arguments.length - 1)]);
   }
-  
+
   // Otherwise, expect an integer index
   final index = arguments.getInt(0);
   if (index == null) {
@@ -609,7 +609,7 @@ Future<LuaCallResult?> _luaSelect(
 
   // Handle negative indices
   final adjustedIndex = index < 0 ? arguments.length + index : index;
-  
+
   // Return arguments from the specified index onward
   if (adjustedIndex >= 1 && adjustedIndex < arguments.length) {
     return Success(arguments.arguments.sublist(adjustedIndex));

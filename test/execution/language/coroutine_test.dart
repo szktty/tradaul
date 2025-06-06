@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 import 'package:tradaul/src/runtime/thread.dart';
 
+import 'init_context.dart';
 import 'test.dart';
 
 void testCoroutine() {
@@ -320,4 +321,10 @@ void testCustomCoroutine() {
       });
     });
   });
+}
+
+void main() {
+  testInitContext();
+  testCoroutine();
+  testCustomCoroutine();
 }

@@ -275,7 +275,7 @@ final class LuaLargeInteger extends LuaNumber {
     } else if (other is LuaFloat) {
       // Check if float value can be represented as integer
       final doubleValue = other.value;
-      if (doubleValue.isFinite && 
+      if (doubleValue.isFinite &&
           doubleValue == doubleValue.truncateToDouble()) {
         try {
           final bigIntValue = BigInt.from(doubleValue.truncate());
@@ -310,7 +310,7 @@ final class LuaLargeInteger extends LuaNumber {
   @override
   Int64? toIntegerRepresentation() {
     // Check if the BigInt value fits within Int64 range
-    if (value >= BigInt.from(Int64.MIN_VALUE.toInt()) && 
+    if (value >= BigInt.from(Int64.MIN_VALUE.toInt()) &&
         value <= BigInt.from(Int64.MAX_VALUE.toInt())) {
       try {
         return Int64(value.toInt());
@@ -419,17 +419,17 @@ final class LuaLargeInteger extends LuaNumber {
 
   // Utility methods
   bool get isEven => value.isEven;
-  
+
   bool get isOdd => value.isOdd;
-  
+
   bool get isNegative => value.isNegative;
-  
+
   bool get isZero => value == BigInt.zero;
-  
+
   bool get isOne => value == BigInt.one;
-  
+
   int get sign => value.sign;
-  
+
   int get bitLength => value.bitLength;
 }
 

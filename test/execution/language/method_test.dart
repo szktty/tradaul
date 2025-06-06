@@ -162,3 +162,7 @@ void testMethodDefinition() {
     });
   });
 }
+
+void main() {
+  testMethodDefinition();
+}

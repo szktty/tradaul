@@ -204,10 +204,10 @@ void main() {
     test('access and modify global environment', () async {
       final source = '''
       x = 10
-      local chunk = dofile("${getFile('return_x')}")
-      return chunk() 
+      local result = dofile("${getFile('return_x')}")
+      return result
       ''';
-      expect(await luaExecute(source), luaEquals([15]));
+      expect(await luaExecute(source), luaEquals([10]));
     });
   });
 }

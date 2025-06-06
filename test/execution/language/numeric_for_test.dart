@@ -114,3 +114,7 @@ void testNumericForLoop() {
     expect(await luaExecute(source), luaEquals([3]));
   });
 }
+
+void main() {
+  testNumericForLoop();
+}

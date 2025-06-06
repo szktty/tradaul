@@ -25,7 +25,7 @@ class LuaDebugModule extends LuaNativeModule {
         'gethook': _luaGethook,
         'setlocal': _luaSetlocal,
       });
-    
+
     context.environment.variables.stringKeySet('debug', module);
     return Success(module);
   }
@@ -46,7 +46,7 @@ Future<LuaCallResult?> _luaGetmetatable(
 
   final value = arguments.get(0)!;
   final metatable = context.environment.getMetatable(value, isRaw: true);
-  
+
   return Success([metatable ?? LuaNil()]);
 }
 
@@ -65,9 +65,9 @@ Future<LuaCallResult?> _luaSetmetatable(
 
   final value = arguments.get(0)!;
   final metatable = arguments.get<LuaTable>(1);
-  
+
   context.environment.setMetatable(value, metatable);
-  
+
   return Success([value]);
 }
 
@@ -152,17 +152,17 @@ Future<LuaCallResult?> _luaTraceback(
 
   // Build a simple traceback
   final buffer = StringBuffer();
-  
+
   if (message != null && message.isNotEmpty) {
     buffer.writeln(message);
   }
-  
+
   buffer.writeln('stack traceback:');
-  
+
   // Add simplified stack trace
   // Note: Tradaul doesn't have detailed stack trace info
   buffer.writeln('\t[Lua]: in main chunk');
-  
+
   return Success([LuaString(buffer.toString())]);
 }
 
@@ -181,7 +181,7 @@ Future<LuaCallResult?> _luaGetinfo(
 
   // Create info table with basic information
   final info = LuaTable();
-  
+
   // Basic implementation - return minimal info
   info.stringKeySet('source', LuaString('@<unknown>'));
   info.stringKeySet('short_src', LuaString('<unknown>'));
@@ -195,7 +195,7 @@ Future<LuaCallResult?> _luaGetinfo(
   info.stringKeySet('name', LuaNil());
   info.stringKeySet('namewhat', LuaString(''));
   info.stringKeySet('istailcall', LuaFalse());
-  
+
   return Success([info]);
 }
 

@@ -98,7 +98,10 @@ Future<LuaCallResult?> _luaResume(
   final result = await coroutine.resume(arguments.arguments.sublist(1));
   if (result.isError()) {
     final error = result.exceptionOrNull()!;
-    return Success([LuaFalse(), LuaString(error.toString())]);
+    final errorMessage = error.type == LuaExceptionType.userError 
+        ? error.message 
+        : error.toString();
+    return Success([LuaFalse(), LuaString(errorMessage)]);
   } else {
     return Success([LuaTrue(), ...result.getOrThrow()]);
   }

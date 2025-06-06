@@ -109,7 +109,7 @@ abstract class LuaOpcode {
   static const int FOR_STEP = 70;
   static const int RESET_LOCAL = 71;
 
-  static final int maxAx = (pow(2, 25) - 1).toInt();
+  static final int maxAx = (pow(2, 24) - 1).toInt();
   static final int minSAx = -(maxAx >> 1) - 1;
   static final int maxSAx = maxAx >> 1;
   static final int maxBx = (pow(2, 17) - 1).toInt();

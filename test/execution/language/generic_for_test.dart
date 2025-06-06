@@ -125,3 +125,7 @@ return sum
     });
   });
 }
+
+void main() {
+  testGenericForLoop();
+}

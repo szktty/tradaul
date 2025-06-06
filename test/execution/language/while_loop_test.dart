@@ -134,3 +134,7 @@ void testWhileLoop() {
     });
   });
 }
+
+void main() {
+  testWhileLoop();
+}

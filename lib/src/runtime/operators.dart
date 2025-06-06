@@ -81,13 +81,15 @@ abstract class ArithmeticOperatorDispatcher {
 
     // Handle BigInt arithmetic
     if (aBigInt != null || bBigInt != null) {
-      final finalA = aBigInt ?? 
-          (aInt != null ? BigInt.from(aInt.toInt()) : 
-           (aDouble != null ? BigInt.from(aDouble.toInt()) : null));
-      final finalB = bBigInt ?? 
-          (bInt != null ? BigInt.from(bInt.toInt()) : 
-           (bDouble != null ? BigInt.from(bDouble.toInt()) : null));
-      
+      final finalA = aBigInt ??
+          (aInt != null
+              ? BigInt.from(aInt.toInt())
+              : (aDouble != null ? BigInt.from(aDouble.toInt()) : null));
+      final finalB = bBigInt ??
+          (bInt != null
+              ? BigInt.from(bInt.toInt())
+              : (bDouble != null ? BigInt.from(bDouble.toInt()) : null));
+
       if (finalA != null && finalB != null) {
         return f(finalA, finalB);
       }

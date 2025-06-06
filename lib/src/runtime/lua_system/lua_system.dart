@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 // ignore_for_file: ambiguous_import
 
@@ -28,7 +29,7 @@ final class LuaSystem {
   late final String lineTerminator;
 
   void write(String message) {
-    stdout.add(message.codeUnits);
+    stdout.add(utf8.encode(message));
   }
 
   void writeLine(String message) {
@@ -36,7 +37,7 @@ final class LuaSystem {
   }
 
   void error(String message) {
-    stderr.add(message.codeUnits);
+    stderr.add(utf8.encode(message));
   }
 
   void errorLine(String message) {

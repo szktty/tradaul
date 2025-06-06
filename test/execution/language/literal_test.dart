@@ -67,3 +67,7 @@ void testLiterals() {
     });
   });
 }
+
+void main() {
+  testLiterals();
+}

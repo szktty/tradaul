@@ -18,14 +18,14 @@ class LuaTableModule extends LuaNativeModule {
 
     final module = LuaTable()
       ..addNativeCalls({
-      'concat': _luaConcat,
-      'insert': _luaInsert,
-      'move': _luaMove,
-      'pack': _luaPack,
-      'remove': _luaRemove,
-      'sort': _luaSort,
-      'unpack': _luaUnpack,
-    });
+        'concat': _luaConcat,
+        'insert': _luaInsert,
+        'move': _luaMove,
+        'pack': _luaPack,
+        'remove': _luaRemove,
+        'sort': _luaSort,
+        'unpack': _luaUnpack,
+      });
     context.environment.variables.stringKeySet('table', module);
     return Success(module);
   }
@@ -290,16 +290,16 @@ Future<LuaCallResult?> _luaUnpack(
 
   final result = <LuaValue>[];
   final endIndex = arguments.length >= 3 ? j : table.length;
-  
+
   for (var index = i; index <= endIndex; index++) {
     final key = LuaInteger.fromInt(index);
     final value = table.get(key);
-    
+
     // If no explicit end index and we hit nil, stop unpacking
     if (arguments.length < 3 && (value == null || value is LuaNil)) {
       break;
     }
-    
+
     result.add(value ?? LuaNil());
   }
 
@@ -373,16 +373,16 @@ Future<LuaCallResult?> _luaPack(
   LuaArguments arguments,
 ) async {
   final result = LuaTable();
-  
+
   // Add all arguments to the table with 1-based indexing
   for (var i = 0; i < arguments.length; i++) {
     final key = LuaInteger.fromInt(i + 1);
     result.set(key, arguments.arguments[i]);
   }
-  
+
   // Set the 'n' field to the number of arguments
   result.stringKeySet('n', LuaInteger.fromInt(arguments.length));
-  
+
   return Success([result]);
 }
 
@@ -428,7 +428,7 @@ Future<LuaCallResult?> _luaSort(
 
   // Sort the list
   final comparator = arguments.get<LuaFunction>(1);
-  
+
   if (comparator != null) {
     // Custom comparator function
     try {
@@ -494,7 +494,7 @@ Future<int> _partition(
       pivot,
       comparator,
     );
-    
+
     if (shouldSwap) {
       i++;
       final temp = list[i];

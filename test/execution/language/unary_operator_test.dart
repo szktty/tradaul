@@ -50,3 +50,7 @@ void testUnaryOperators() {
     ]);
   });
 }
+
+void main() {
+  testUnaryOperators();
+}

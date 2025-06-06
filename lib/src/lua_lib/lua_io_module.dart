@@ -6,7 +6,6 @@ import 'package:result_dart/result_dart.dart';
 import 'package:tradaul/src/runtime/lua_context.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
 import 'package:tradaul/src/runtime/lua_module.dart';
-import 'package:tradaul/src/runtime/lua_module_options.dart';
 import 'package:tradaul/src/runtime/lua_native.dart';
 import 'package:tradaul/src/runtime/lua_table.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
@@ -14,12 +13,12 @@ import 'package:tradaul/src/runtime/lua_values.dart';
 // Internal file wrapper for default file operations
 class _FileWrapper {
   _FileWrapper(this.file, this.mode) : position = 0;
-  
+
   final dart_io.File file;
   final String mode;
   int position;
   bool _closed = false;
-  
+
   bool get isOpen => !_closed;
   void close() => _closed = true;
 }
@@ -34,12 +33,12 @@ class LuaIoModule extends LuaNativeModule {
     }
 
     final module = LuaTable();
-    
+
     // Create standard file handles
     final stdin = _LuaFileHandle._stdin();
     final stdout = _LuaFileHandle._stdout();
     final stderr = _LuaFileHandle._stderr();
-    
+
     module.addNativeCalls({
       'close': _luaClose,
       'flush': _luaFlush,
@@ -82,10 +81,13 @@ class _IoState {
 // File handle wrapper
 class _LuaFileHandle extends LuaValue {
   _LuaFileHandle._(this.handle, this.mode, {this.isStandardStream = false});
-  
-  factory _LuaFileHandle._stdin() => _LuaFileHandle._('stdin', 'r', isStandardStream: true);
-  factory _LuaFileHandle._stdout() => _LuaFileHandle._('stdout', 'w', isStandardStream: true);
-  factory _LuaFileHandle._stderr() => _LuaFileHandle._('stderr', 'w', isStandardStream: true);
+
+  factory _LuaFileHandle._stdin() =>
+      _LuaFileHandle._('stdin', 'r', isStandardStream: true);
+  factory _LuaFileHandle._stdout() =>
+      _LuaFileHandle._('stdout', 'w', isStandardStream: true);
+  factory _LuaFileHandle._stderr() =>
+      _LuaFileHandle._('stderr', 'w', isStandardStream: true);
 
   final Object handle;
   final String mode;
@@ -130,7 +132,7 @@ class _LuaFileHandle extends LuaValue {
       'setvbuf': _fileSetvbuf,
       'write': _fileWrite,
     });
-    mt.stringKeySet('__index', mt);  // Set __index to itself for method lookup
+    mt.stringKeySet('__index', mt); // Set __index to itself for method lookup
     return mt;
   }
 }
@@ -139,7 +141,7 @@ Future<LuaCallResult?> _luaClose(
   LuaContext context,
   LuaArguments arguments,
 ) async {
-  final file = arguments.length > 0 
+  final file = arguments.length > 0
       ? arguments.get<_LuaFileHandle>(0)
       : _IoState.currentOutput;
 
@@ -160,7 +162,7 @@ Future<LuaCallResult?> _luaFlush(
   LuaContext context,
   LuaArguments arguments,
 ) async {
-  final file = arguments.length > 0 
+  final file = arguments.length > 0
       ? arguments.get<_LuaFileHandle>(0)
       : _IoState.currentOutput;
 
@@ -234,7 +236,7 @@ Future<LuaCallResult?> _luaLines(
   final result = await _openFile(context, filename, 'r');
   if (result != null && result.isSuccess()) {
     final file = result.getOrThrow().first as _LuaFileHandle;
-    final formats = arguments.length > 1 
+    final formats = arguments.length > 1
         ? arguments.arguments.sublist(1).map((e) => e.luaToString()).toList()
         : ['*l'];
     return _createLinesIterator(context, file, formats);
@@ -329,17 +331,17 @@ Future<LuaCallResult?> _luaPopen(
   }
 
   final mode = arguments.getString(1) ?? 'r';
-  
+
   final callback = context.options.ioOptions?.popen;
   if (callback != null) {
     final result = await callback(command, mode);
     if (result.isSuccess()) {
       final handle = result.getOrThrow();
       final fileHandle = _LuaFileHandle._(handle, mode);
-      
+
       // Set up metatable for method calls
       context.environment.setMetatable(fileHandle, fileHandle.getMetatable());
-      
+
       return Success([fileHandle]);
     } else {
       return Success([LuaNil(), LuaString('Failed to execute command')]);
@@ -364,10 +366,10 @@ Future<LuaCallResult?> _luaRead(
     );
   }
 
-  final formats = arguments.arguments.isEmpty 
-      ? ['*l'] 
+  final formats = arguments.arguments.isEmpty
+      ? ['*l']
       : arguments.arguments.map((e) => e.luaToString()).toList();
-  
+
   return _readFromFile(context, file, formats);
 }
 
@@ -388,21 +390,21 @@ Future<LuaCallResult?> _luaTmpfile(
     // Create a real temporary file
     final tempDir = dart_io.Directory.systemTemp;
     final tempFile = dart_io.File(
-      '${tempDir.path}/lua_tmp_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}.tmp'
-    );
-    
+        '${tempDir.path}/lua_tmp_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(1000)}.tmp');
+
     // Create the file
     await tempFile.create();
-    
+
     final wrapper = _FileWrapper(tempFile, 'w+');
     final fileHandle = _LuaFileHandle._(wrapper, 'w+');
-    
+
     // Set up metatable for method calls
     context.environment.setMetatable(fileHandle, fileHandle.getMetatable());
-    
+
     return Success([fileHandle]);
   } on dart_io.FileSystemException catch (e) {
-    return Success([LuaNil(), LuaString('cannot create temporary file: ${e.message}')]);
+    return Success(
+        [LuaNil(), LuaString('cannot create temporary file: ${e.message}')]);
   }
 }
 
@@ -500,10 +502,10 @@ Future<LuaCallResult?> _fileLines(
     );
   }
 
-  final formats = arguments.length > 1 
+  final formats = arguments.length > 1
       ? arguments.arguments.sublist(1).map((e) => e.luaToString()).toList()
       : ['*l'];
-  
+
   return _createLinesIterator(context, file, formats);
 }
 
@@ -522,10 +524,10 @@ Future<LuaCallResult?> _fileRead(
     );
   }
 
-  final formats = arguments.length > 1 
+  final formats = arguments.length > 1
       ? arguments.arguments.sublist(1).map((e) => e.luaToString()).toList()
       : ['*l'];
-  
+
   return _readFromFile(context, file, formats);
 }
 
@@ -587,7 +589,7 @@ Future<LuaCallResult?> _fileSeek(
     final wrapper = file.handle as _FileWrapper;
     try {
       final fileLength = await wrapper.file.length();
-      
+
       int newPosition;
       switch (whence) {
         case 'set':
@@ -605,10 +607,10 @@ Future<LuaCallResult?> _fileSeek(
             ),
           );
       }
-      
+
       if (newPosition < 0) newPosition = 0;
       if (newPosition > fileLength) newPosition = fileLength;
-      
+
       wrapper.position = newPosition;
       return Success([LuaInteger.fromInt(newPosition)]);
     } on dart_io.FileSystemException catch (e) {
@@ -696,10 +698,9 @@ Future<LuaCallResult?> _fileWrite(
     );
   }
 
-  final values = arguments.length > 1 
-      ? arguments.arguments.sublist(1)
-      : <LuaValue>[];
-  
+  final values =
+      arguments.length > 1 ? arguments.arguments.sublist(1) : <LuaValue>[];
+
   return _writeToFile(context, file, values);
 }
 
@@ -715,10 +716,10 @@ Future<LuaCallResult?> _openFile(
     if (result.isSuccess()) {
       final handle = result.getOrThrow();
       final fileHandle = _LuaFileHandle._(handle, mode);
-      
+
       // Set up metatable for method calls
       context.environment.setMetatable(fileHandle, fileHandle.getMetatable());
-      
+
       return Success([fileHandle]);
     } else {
       return Success([LuaNil(), LuaString('cannot open file')]);
@@ -728,12 +729,12 @@ Future<LuaCallResult?> _openFile(
   // Default implementation: create real file wrapper
   try {
     final file = dart_io.File(filename);
-    
+
     // Check if file exists for read modes
     if (mode.contains('r') && !file.existsSync()) {
       return Success([LuaNil(), LuaString('No such file or directory')]);
     }
-    
+
     // Create parent directory for write modes if needed
     if (mode.contains('w') || mode.contains('a')) {
       final parent = file.parent;
@@ -741,13 +742,13 @@ Future<LuaCallResult?> _openFile(
         parent.createSync(recursive: true);
       }
     }
-    
+
     final wrapper = _FileWrapper(file, mode);
     final fileHandle = _LuaFileHandle._(wrapper, mode);
-    
+
     // Set up metatable for method calls
     context.environment.setMetatable(fileHandle, fileHandle.getMetatable());
-    
+
     return Success([fileHandle]);
   } on dart_io.FileSystemException catch (e) {
     return Success([LuaNil(), LuaString(e.message)]);
@@ -797,7 +798,7 @@ Future<LuaCallResult?> _closeFile(
     final wrapper = file.handle as _FileWrapper;
     wrapper.close();
   }
-  
+
   file.markClosed();
   return Success([LuaTrue()]);
 }
@@ -881,7 +882,7 @@ Future<LuaCallResult?> _readFromFile(
           final lines = content.split('\n');
           var currentPos = 0;
           var targetLine = '';
-          
+
           for (var i = 0; i < lines.length; i++) {
             if (currentPos >= wrapper.position) {
               targetLine = lines[i];
@@ -905,7 +906,7 @@ Future<LuaCallResult?> _readFromFile(
                 final availableBytes = content.length - fromPosition;
                 final bytesToRead = n.clamp(0, availableBytes);
                 final result = content.substring(
-                  fromPosition, 
+                  fromPosition,
                   fromPosition + bytesToRead,
                 );
                 wrapper.position += bytesToRead;
@@ -992,7 +993,7 @@ Future<LuaCallResult?> _writeToFile(
     try {
       for (final value in values) {
         await wrapper.file.writeAsString(
-          value.luaToString(), 
+          value.luaToString(),
           mode: dart_io.FileMode.append,
         );
       }

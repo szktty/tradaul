@@ -95,7 +95,8 @@ Future<LuaCallResult?> _luaDate(
   // Get the time to format
   LuaOsDateTime dateTimeDesc;
   if (timeArg != null) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(timeArg * 1000, isUtc: isUtc);
+    final dt =
+        DateTime.fromMillisecondsSinceEpoch(timeArg * 1000, isUtc: isUtc);
     dateTimeDesc = LuaOsDateTime(
       year: dt.year,
       month: dt.month,
@@ -166,12 +167,17 @@ Future<LuaCallResult?> _luaDate(
 
   // Simple format conversion
   var result = format;
-  result = result.replaceAll('%Y', dateTimeDesc.year.toString().padLeft(4, '0'));
-  result = result.replaceAll('%m', dateTimeDesc.month.toString().padLeft(2, '0'));
+  result =
+      result.replaceAll('%Y', dateTimeDesc.year.toString().padLeft(4, '0'));
+  result =
+      result.replaceAll('%m', dateTimeDesc.month.toString().padLeft(2, '0'));
   result = result.replaceAll('%d', dateTimeDesc.day.toString().padLeft(2, '0'));
-  result = result.replaceAll('%H', dateTimeDesc.hour.toString().padLeft(2, '0'));
-  result = result.replaceAll('%M', dateTimeDesc.minute.toString().padLeft(2, '0'));
-  result = result.replaceAll('%S', dateTimeDesc.second.toString().padLeft(2, '0'));
+  result =
+      result.replaceAll('%H', dateTimeDesc.hour.toString().padLeft(2, '0'));
+  result =
+      result.replaceAll('%M', dateTimeDesc.minute.toString().padLeft(2, '0'));
+  result =
+      result.replaceAll('%S', dateTimeDesc.second.toString().padLeft(2, '0'));
   result = result.replaceAll('%c', '$dateTimeDesc');
 
   return Success([LuaString(result)]);
@@ -235,7 +241,7 @@ Future<LuaCallResult?> _luaExecute(
   }
 
   final command = arguments.getString(0);
-  
+
   final callback = context.options.osCallbacks?.execute;
   if (callback != null && command != null) {
     final result = await callback(command);
@@ -243,8 +249,11 @@ Future<LuaCallResult?> _luaExecute(
       final status = result.getOrThrow();
       return Success([
         LuaBoolean.fromBool(status.success),
-        status.code != null ? LuaInteger.fromInt(status.code!) : LuaNil(),
-        status.signal != null ? LuaInteger.fromInt(status.signal!) : LuaNil(),
+        if (status.code != null) LuaInteger.fromInt(status.code!) else LuaNil(),
+        if (status.signal != null)
+          LuaInteger.fromInt(status.signal!)
+        else
+          LuaNil(),
       ]);
     } else {
       return Failure(
@@ -305,7 +314,7 @@ Future<LuaCallResult?> _luaExit(
     final result = await callback(status: status, code: code);
     if (result.isSuccess()) {
       // This shouldn't actually return since it should exit
-      return Success([]);
+      return const Success([]);
     } else {
       return Failure(
         LuaException(
@@ -317,7 +326,7 @@ Future<LuaCallResult?> _luaExit(
   }
 
   // Default behavior - don't actually exit, just return
-  return Success([]);
+  return const Success([]);
 }
 
 Future<LuaCallResult?> _luaGetenv(
@@ -458,22 +467,16 @@ Future<LuaCallResult?> _luaSetlocale(
   switch (categoryStr) {
     case 'all':
       category = LuaLocaleCategory.all;
-      break;
     case 'collate':
       category = LuaLocaleCategory.collate;
-      break;
     case 'ctype':
       category = LuaLocaleCategory.ctype;
-      break;
     case 'monetary':
       category = LuaLocaleCategory.monetary;
-      break;
     case 'numeric':
       category = LuaLocaleCategory.numeric;
-      break;
     case 'time':
       category = LuaLocaleCategory.time;
-      break;
     default:
       return Failure(
         LuaException.badArgumentError(
@@ -538,9 +541,12 @@ Future<LuaCallResult?> _luaTime(
       );
     }
 
-    final hour = (tableArg.stringKeyGet('hour') as LuaInteger?)?.value.toInt() ?? 12;
-    final min = (tableArg.stringKeyGet('min') as LuaInteger?)?.value.toInt() ?? 0;
-    final sec = (tableArg.stringKeyGet('sec') as LuaInteger?)?.value.toInt() ?? 0;
+    final hour =
+        (tableArg.stringKeyGet('hour') as LuaInteger?)?.value.toInt() ?? 12;
+    final min =
+        (tableArg.stringKeyGet('min') as LuaInteger?)?.value.toInt() ?? 0;
+    final sec =
+        (tableArg.stringKeyGet('sec') as LuaInteger?)?.value.toInt() ?? 0;
 
     dateTime = LuaOsDateTime(
       year: year.value.toInt(),

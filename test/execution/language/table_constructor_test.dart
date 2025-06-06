@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 
+import 'init_context.dart';
 import 'test.dart';
 
 void testTableConstructors() {
@@ -95,4 +96,9 @@ void testTableConstructors() {
       );
     });
   });
+}
+
+void main() {
+  testInitContext();
+  testTableConstructors();
 }

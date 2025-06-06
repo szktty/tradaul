@@ -297,3 +297,7 @@ void testConditional() {
     });
   });
 }
+
+void main() {
+  testConditional();
+}

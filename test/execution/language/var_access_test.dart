@@ -142,3 +142,8 @@ void testTableFieldAccess() {
     });
   });
 }
+
+void main() {
+  testGlobalVariableAccess();
+  testTableFieldAccess();
+}

@@ -27,7 +27,7 @@ void main() {
     test('LuaNumber.fromNum with valid BigInt creates LuaLargeInteger', () {
       final bigInt = BigInt.parse('123456789012345678901234567890');
       final luaNumber = LuaNumber.fromNum(bigInt);
-      
+
       expect(luaNumber, isA<LuaLargeInteger>());
       expect((luaNumber as LuaLargeInteger).value, equals(bigInt));
     });

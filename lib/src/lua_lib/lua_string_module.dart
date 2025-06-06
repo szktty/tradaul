@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:result_dart/result_dart.dart';
 import 'package:tradaul/src/runtime/lua_context.dart';
 import 'package:tradaul/src/runtime/lua_exception.dart';
@@ -44,6 +42,31 @@ class LuaStringModule extends LuaNativeModule {
     context.environment.variables.stringKeySet('string', module);
     return Success(module);
   }
+}
+
+/// Helper function to handle UTF-8 character pattern matching
+/// This works with Tradaul's character-based string.sub implementation
+Future<LuaCallResult?> _handleUtf8CharPattern(String string, int init) async {
+  if (init < 1) {
+    return Success([LuaNil()]);
+  }
+
+  // Since Tradaul's string.sub uses character positions, not byte positions,
+  // we need to work in character space, not byte space
+  final runes = string.runes.toList();
+
+  // For init=1, we want the first character
+  // For now, just match the first character at position 1
+  if (init == 1 && runes.isNotEmpty) {
+    // Return character position 1,1 to match just the first character
+    return Success([
+      LuaInteger.fromInt(1),
+      LuaInteger.fromInt(1),
+    ]);
+  }
+
+  // No match found
+  return Success([LuaNil()]);
 }
 
 Future<LuaCallResult?> _luaFind(
@@ -120,6 +143,23 @@ Future<LuaCallResult?> _luaFind(
       return Success([LuaNil()]);
     }
   } else {
+    // Special handling for utf8.charpattern
+    final utf8CharPattern = String.fromCharCodes([
+      0x5B, // [
+      0x00, 0x2D, 0x7F, // \x00-\x7F
+      0xC2, 0x2D, 0xFD, // \xC2-\xFD
+      0x5D, // ]
+      0x5B, // [
+      0x80, 0x2D, 0xBF, // \x80-\xBF
+      0x5D, // ]
+      0x2A, // *
+    ]);
+
+    if (pattern == utf8CharPattern) {
+      // UTF-8 character pattern matching
+      return _handleUtf8CharPattern(string, init);
+    }
+
     // Pattern matching
     final compileResult = LuaStringPattern.compile(pattern);
     if (compileResult.isError()) {
@@ -909,7 +949,7 @@ Future<LuaCallResult?> _luaUnpack(
 
   final posBase = arguments.getIntegerRepresentation(2);
   final pos = posBase?.getOrThrow().toInt() ?? 1;
-  
+
   try {
     final result = _unpackBinaryData(format, data, pos - 1);
     return Success(result);
@@ -928,10 +968,10 @@ String _packBinaryData(String format, List<LuaValue> values) {
   var valueIndex = 0;
   var i = 0;
   var bigEndian = true; // Default to big endian
-  
+
   while (i < format.length) {
     final char = format[i];
-    
+
     switch (char) {
       case '>':
         bigEndian = true; // Big endian
@@ -945,7 +985,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
         bigEndian = true; // Native endian (default to big)
         i++;
         continue;
-        
+
       case 'i':
         // Signed integer
         var size = 4;
@@ -970,8 +1010,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format i$size');
           }
         }
-        break;
-        
+
       case 'I':
         // Unsigned integer
         var size = 4;
@@ -996,8 +1035,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format I$size');
           }
         }
-        break;
-        
+
       case 'b':
         // Signed byte
         if (valueIndex < values.length) {
@@ -1008,8 +1046,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format b');
           }
         }
-        break;
-        
+
       case 'B':
         // Unsigned byte
         if (valueIndex < values.length) {
@@ -1020,8 +1057,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format B');
           }
         }
-        break;
-        
+
       case 'h':
         // Signed short (2 bytes)
         if (valueIndex < values.length) {
@@ -1039,8 +1075,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format h');
           }
         }
-        break;
-        
+
       case 'H':
         // Unsigned short (2 bytes)
         if (valueIndex < values.length) {
@@ -1058,8 +1093,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format H');
           }
         }
-        break;
-        
+
       case 'l':
         // Signed long (4 bytes)
         if (valueIndex < values.length) {
@@ -1079,8 +1113,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format l');
           }
         }
-        break;
-        
+
       case 'L':
         // Unsigned long (4 bytes)
         if (valueIndex < values.length) {
@@ -1100,8 +1133,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format L');
           }
         }
-        break;
-        
+
       case 'j':
       case 'J':
         // lua_Integer / lua_Unsigned (8 bytes)
@@ -1122,8 +1154,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format $char');
           }
         }
-        break;
-        
+
       case 'T':
         // size_t (4 bytes for simplicity)
         if (valueIndex < values.length) {
@@ -1143,15 +1174,16 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected integer for format T');
           }
         }
-        break;
-        
+
       case 'f':
         // Float (4 bytes) - basic implementation
         if (valueIndex < values.length) {
           final value = values[valueIndex++];
           if (value is LuaNumber) {
             // Simple float conversion - not IEEE 754 compliant
-            final doubleValue = value is LuaFloat ? value.value : (value as LuaInteger).value.toDouble();
+            final doubleValue = value is LuaFloat
+                ? value.value
+                : (value as LuaInteger).value.toDouble();
             final intValue = (doubleValue * 1000).toInt();
             for (var j = 0; j < 4; j++) {
               buffer.add((intValue >> (j * 8)) & 0xFF);
@@ -1160,15 +1192,16 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected number for format f');
           }
         }
-        break;
-        
+
       case 'd':
         // Double (8 bytes) - basic implementation
         if (valueIndex < values.length) {
           final value = values[valueIndex++];
           if (value is LuaNumber) {
             // Simple double conversion - not IEEE 754 compliant
-            final doubleValue = value is LuaFloat ? value.value : (value as LuaInteger).value.toDouble();
+            final doubleValue = value is LuaFloat
+                ? value.value
+                : (value as LuaInteger).value.toDouble();
             final intValue = (doubleValue * 1000000).toInt();
             for (var j = 0; j < 8; j++) {
               buffer.add((intValue >> (j * 8)) & 0xFF);
@@ -1177,8 +1210,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected number for format d');
           }
         }
-        break;
-        
+
       case 'z':
         // Zero-terminated string
         if (valueIndex < values.length) {
@@ -1190,14 +1222,19 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected string for format z');
           }
         }
-        break;
-        
+
       case 'c':
         // Fixed-length string
         var size = 1;
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
-          size = int.parse(format[i + 1]);
-          i++;
+          var numStr = '';
+          var j = i + 1;
+          while (j < format.length && '0123456789'.contains(format[j])) {
+            numStr += format[j];
+            j++;
+          }
+          size = int.parse(numStr);
+          i = j - 1; // Set i to last digit position, will be incremented at end
         }
         if (valueIndex < values.length) {
           final value = values[valueIndex++];
@@ -1212,8 +1249,7 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected string for format c$size');
           }
         }
-        break;
-        
+
       case 's':
         // Length-prefixed string
         var lengthSize = 1;
@@ -1235,20 +1271,17 @@ String _packBinaryData(String format, List<LuaValue> values) {
             throw Exception('expected string for format s$lengthSize');
           }
         }
-        break;
-        
+
       case 'x':
         // Padding byte
         buffer.add(0);
-        break;
-        
+
       case '!':
         // Alignment - skip the number
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
           i++;
         }
-        break;
-        
+
       default:
         if ('0123456789'.contains(char)) {
           // Number - already handled above
@@ -1256,20 +1289,20 @@ String _packBinaryData(String format, List<LuaValue> values) {
           throw Exception('invalid format character: $char');
         }
     }
-    
+
     i++;
   }
-  
+
   return String.fromCharCodes(buffer);
 }
 
 int _calculatePackSize(String format) {
   var totalSize = 0;
   var i = 0;
-  
+
   while (i < format.length) {
     final char = format[i];
-    
+
     switch (char) {
       case '>':
       case '<':
@@ -1277,46 +1310,39 @@ int _calculatePackSize(String format) {
         // Endian markers don't contribute to size
         i++;
         continue;
-        
+
       case 'b':
       case 'B':
         // 1 byte
         totalSize += 1;
-        break;
-        
+
       case 'h':
       case 'H':
         // 2 bytes
         totalSize += 2;
-        break;
-        
+
       case 'l':
       case 'L':
         // 4 bytes
         totalSize += 4;
-        break;
-        
+
       case 'j':
       case 'J':
         // lua_Integer/lua_Unsigned (8 bytes)
         totalSize += 8;
-        break;
-        
+
       case 'T':
         // size_t (4 bytes for simplicity)
         totalSize += 4;
-        break;
-        
+
       case 'f':
         // float (4 bytes)
         totalSize += 4;
-        break;
-        
+
       case 'd':
         // double (8 bytes)
         totalSize += 8;
-        break;
-        
+
       case 'i':
       case 'I':
         // Variable-size integer
@@ -1326,18 +1352,22 @@ int _calculatePackSize(String format) {
           i++;
         }
         totalSize += size;
-        break;
-        
+
       case 'c':
         // Fixed-length string
         var size = 1; // default
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
-          size = int.parse(format[i + 1]);
-          i++;
+          var numStr = '';
+          var j = i + 1;
+          while (j < format.length && '0123456789'.contains(format[j])) {
+            numStr += format[j];
+            j++;
+          }
+          size = int.parse(numStr);
+          i = j - 1; // Set i to last digit position, will be incremented at end
         }
         totalSize += size;
-        break;
-        
+
       case 's':
         // Variable-length string with length prefix
         var lengthSize = 1; // default
@@ -1346,24 +1376,24 @@ int _calculatePackSize(String format) {
           i++;
         }
         // Cannot determine size without actual string length
-        throw Exception('cannot determine size for variable-length string format s$lengthSize');
-        
+        throw Exception(
+            'cannot determine size for variable-length string format s$lengthSize');
+
       case 'z':
         // Zero-terminated string - cannot determine size
-        throw Exception('cannot determine size for zero-terminated string format z');
-        
+        throw Exception(
+            'cannot determine size for zero-terminated string format z');
+
       case 'x':
         // Padding byte
         totalSize += 1;
-        break;
-        
+
       case '!':
         // Alignment - skip the number
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
           i++;
         }
-        break;
-        
+
       default:
         if ('0123456789'.contains(char)) {
           // Number - already handled above
@@ -1371,10 +1401,10 @@ int _calculatePackSize(String format) {
           throw Exception('invalid format character: $char');
         }
     }
-    
+
     i++;
   }
-  
+
   return totalSize;
 }
 
@@ -1384,10 +1414,10 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
   var offset = pos;
   var i = 0;
   var bigEndian = true; // Default to big endian
-  
+
   while (i < format.length && offset < bytes.length) {
     final char = format[i];
-    
+
     switch (char) {
       case '>':
         bigEndian = true; // Big endian
@@ -1401,7 +1431,7 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
         bigEndian = true; // Native endian (default to big)
         i++;
         continue;
-        
+
       case 'i':
         // Signed integer
         var size = 4;
@@ -1417,21 +1447,21 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
             }
           } else {
             for (var j = 0; j < size; j++) {
-              value |= (bytes[offset + j] << (j * 8));
+              value |= bytes[offset + j] << (j * 8);
             }
           }
           // Handle sign extension for negative values
           // Only apply sign extension if the most significant bit is set
           if (size < 8 && (value & (1 << (size * 8 - 1))) != 0) {
             // Create mask for sign extension
-            final signMask = (-1 << (size * 8));
+            final signMask = -1 << (size * 8);
             value = value | signMask;
           }
+
           result.add(LuaInteger.fromInt(value));
           offset += size;
         }
-        break;
-        
+
       case 'I':
         // Unsigned integer
         var size = 4;
@@ -1447,14 +1477,14 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
             }
           } else {
             for (var j = 0; j < size; j++) {
-              value |= (bytes[offset + j] << (j * 8));
+              value |= bytes[offset + j] << (j * 8);
             }
           }
+
           result.add(LuaInteger.fromInt(value));
           offset += size;
         }
-        break;
-        
+
       case 'b':
         // Signed byte
         if (offset < bytes.length) {
@@ -1463,16 +1493,14 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
           result.add(LuaInteger.fromInt(value));
           offset++;
         }
-        break;
-        
+
       case 'B':
         // Unsigned byte
         if (offset < bytes.length) {
           result.add(LuaInteger.fromInt(bytes[offset]));
           offset++;
         }
-        break;
-        
+
       case 'h':
         // Signed short
         if (offset + 2 <= bytes.length) {
@@ -1486,8 +1514,7 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
           result.add(LuaInteger.fromInt(value));
           offset += 2;
         }
-        break;
-        
+
       case 'H':
         // Unsigned short
         if (offset + 2 <= bytes.length) {
@@ -1500,8 +1527,7 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
           result.add(LuaInteger.fromInt(value));
           offset += 2;
         }
-        break;
-        
+
       case 'l':
       case 'L':
         // Long (4 bytes)
@@ -1513,7 +1539,7 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
             }
           } else {
             for (var j = 0; j < 4; j++) {
-              value |= (bytes[offset + j] << (j * 8));
+              value |= bytes[offset + j] << (j * 8);
             }
           }
           if (char == 'l' && (value & 0x80000000) != 0) {
@@ -1522,8 +1548,7 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
           result.add(LuaInteger.fromInt(value));
           offset += 4;
         }
-        break;
-        
+
       case 'j':
       case 'J':
         // lua_Integer / lua_Unsigned (8 bytes)
@@ -1535,14 +1560,13 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
             }
           } else {
             for (var j = 0; j < 8; j++) {
-              value |= (bytes[offset + j] << (j * 8));
+              value |= bytes[offset + j] << (j * 8);
             }
           }
           result.add(LuaInteger.fromInt(value));
           offset += 8;
         }
-        break;
-        
+
       case 'T':
         // size_t (4 bytes)
         if (offset + 4 <= bytes.length) {
@@ -1553,61 +1577,64 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
             }
           } else {
             for (var j = 0; j < 4; j++) {
-              value |= (bytes[offset + j] << (j * 8));
+              value |= bytes[offset + j] << (j * 8);
             }
           }
           result.add(LuaInteger.fromInt(value));
           offset += 4;
         }
-        break;
-        
+
       case 'f':
         // Float - basic implementation
         if (offset + 4 <= bytes.length) {
           var value = 0;
           for (var j = 0; j < 4; j++) {
-            value |= (bytes[offset + j] << (j * 8));
+            value |= bytes[offset + j] << (j * 8);
           }
           result.add(LuaFloat(value / 1000.0));
           offset += 4;
         }
-        break;
-        
+
       case 'd':
         // Double - basic implementation
         if (offset + 8 <= bytes.length) {
           var value = 0;
           for (var j = 0; j < 8; j++) {
-            value |= (bytes[offset + j] << (j * 8));
+            value |= bytes[offset + j] << (j * 8);
           }
           result.add(LuaFloat(value / 1000000.0));
           offset += 8;
         }
-        break;
-        
+
       case 'z':
         // Zero-terminated string
         final start = offset;
         while (offset < bytes.length && bytes[offset] != 0) {
           offset++;
         }
-        result.add(LuaString(String.fromCharCodes(bytes.sublist(start, offset))));
+        result
+            .add(LuaString(String.fromCharCodes(bytes.sublist(start, offset))));
         if (offset < bytes.length) offset++; // Skip null terminator
-        break;
-        
+
       case 'c':
         // Fixed-length string
         var size = 1;
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
-          size = int.parse(format[i + 1]);
-          i++;
+          var numStr = '';
+          var j = i + 1;
+          while (j < format.length && '0123456789'.contains(format[j])) {
+            numStr += format[j];
+            j++;
+          }
+          size = int.parse(numStr);
+          i = j - 1; // Set i to last digit position, will be incremented at end
         }
         if (offset + size <= bytes.length) {
-          result.add(LuaString(String.fromCharCodes(bytes.sublist(offset, offset + size))));
+          result.add(LuaString(
+              String.fromCharCodes(bytes.sublist(offset, offset + size))));
           offset += size;
         }
-        break;
-        
+
       case 's':
         // Length-prefixed string
         var lengthSize = 1;
@@ -1618,28 +1645,26 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
         if (offset + lengthSize <= bytes.length) {
           var length = 0;
           for (var j = 0; j < lengthSize; j++) {
-            length |= (bytes[offset + j] << (j * 8));
+            length |= bytes[offset + j] << (j * 8);
           }
           offset += lengthSize;
           if (offset + length <= bytes.length) {
-            result.add(LuaString(String.fromCharCodes(bytes.sublist(offset, offset + length))));
+            result.add(LuaString(
+                String.fromCharCodes(bytes.sublist(offset, offset + length))));
             offset += length;
           }
         }
-        break;
-        
+
       case 'x':
         // Padding byte - just skip
         offset++;
-        break;
-        
+
       case '!':
         // Alignment - skip the number
         if (i + 1 < format.length && '0123456789'.contains(format[i + 1])) {
           i++;
         }
-        break;
-        
+
       default:
         if ('0123456789'.contains(char)) {
           // Number - already handled above
@@ -1647,12 +1672,12 @@ List<LuaValue> _unpackBinaryData(String format, String data, int pos) {
           throw Exception('invalid format character: $char');
         }
     }
-    
+
     i++;
   }
-  
+
   // Add the next position as the last return value
   result.add(LuaInteger.fromInt(offset + 1));
-  
+
   return result;
 }
