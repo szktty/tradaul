@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/args.dart';
@@ -22,7 +23,13 @@ Future<void> main(List<String> arguments) async {
     ..addFlag('verbose', negatable: false, help: 'Enable verbose output')
     ..addFlag('debug', negatable: false, help: 'Enable debug mode')
     ..addFlag('syntax', abbr: 'c', negatable: false, help: 'Check syntax only')
-    ..addOption('execute', abbr: 'e', help: 'Pass string as source code');
+    ..addOption('execute', abbr: 'e', help: 'Pass string as source code')
+    ..addFlag(
+      'stdin',
+      abbr: 'i',
+      negatable: false,
+      help: 'Read source code from stdin',
+    );
 
   ArgResults args;
   try {
@@ -46,10 +53,11 @@ Future<void> main(List<String> arguments) async {
   final debug = args['debug'] as bool;
   final syntax = args['syntax'] as bool;
   final script = args['execute'] as String?;
+  final useStdin = args['stdin'] as bool;
 
   final remaining = args.rest;
 
-  if (remaining.isEmpty && script == null) {
+  if (remaining.isEmpty && script == null && !useStdin) {
     printUsage(parser.usage);
     return;
   }
@@ -70,6 +78,12 @@ Future<void> main(List<String> arguments) async {
 
   if (script != null) {
     final result = await context.execute(script, path: '<stdin>');
+    checkResult(result);
+  }
+
+  if (useStdin) {
+    final stdinSource = await readFromStdin();
+    final result = await context.execute(stdinSource, path: '<stdin>');
     checkResult(result);
   }
 
@@ -108,6 +122,16 @@ void printUsage(String usage) {
 
 void printError(String message) {
   stdout.writeln('Error: $message');
+}
+
+Future<String> readFromStdin() async {
+  final lines = <String>[];
+  await for (final line in stdin
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())) {
+    lines.add(line);
+  }
+  return lines.join('\n');
 }
 
 void checkResult(LuaExecutionResult result) {

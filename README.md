@@ -56,6 +56,49 @@ make cli
 This will compile the library and output the binary to `bin/tradaul`. You can then execute this binary to run the
 library in a standalone mode for testing and development purposes.
 
+### Command Line Usage
+
+```bash
+tradaul [OPTIONS] [SCRIPT [ARGS]]
+```
+
+#### Options
+
+- `-h, --help` - Display help message
+- `--version` - Display the version of Tradaul
+- `--verbose` - Enable verbose output
+- `--debug` - Enable debug mode
+- `-c, --syntax` - Check syntax only
+- `-e, --execute <code>` - Pass string as source code
+- `-i, --stdin` - Read source code from stdin
+
+#### Examples
+
+Execute a Lua script file:
+```bash
+tradaul script.lua
+```
+
+Execute Lua code directly:
+```bash
+tradaul -e "print('Hello, World!')"
+```
+
+Read Lua code from stdin:
+```bash
+echo "print('Hello from stdin')" | tradaul -i
+```
+
+Check syntax only:
+```bash
+tradaul -c script.lua
+```
+
+Enable debug mode:
+```bash
+tradaul --debug script.lua
+```
+
 ## Usage
 
 See [USAGE.md](USAGE.md)
