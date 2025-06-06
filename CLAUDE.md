@@ -31,6 +31,41 @@ Tradaul is a Lua 5.4 interpreter implementation written in Dart, designed as a l
 - `dart analyze` - Run static analysis (uses very_good_analysis)
 - Code must pass strict linting rules; unawaited_futures are treated as errors
 
+### CLI Usage
+The `tradaul` CLI executable is built with `make cli` and outputs to `bin/tradaul`.
+
+#### Command Line Usage
+```bash
+bin/tradaul [OPTIONS] [SCRIPT [ARGS]]
+```
+
+#### Options
+- `-h, --help` - Display help message
+- `--version` - Display the version of Tradaul
+- `--verbose` - Enable verbose output
+- `--debug` - Enable debug mode
+- `-c, --syntax` - Check syntax only
+- `-e, --execute <code>` - Pass string as source code
+- `-i, --stdin` - Read source code from stdin
+
+#### Examples
+```bash
+# Execute a Lua script file
+bin/tradaul script.lua
+
+# Execute Lua code directly
+bin/tradaul -e "print('Hello, World!')"
+
+# Read Lua code from stdin
+echo "print('Hello from stdin')" | bin/tradaul -i
+
+# Check syntax only
+bin/tradaul -c script.lua
+
+# Enable debug mode
+bin/tradaul --debug script.lua
+```
+
 ## Architecture
 
 The codebase follows a clean 3-stage pipeline:
