@@ -578,6 +578,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.ADD:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number addition
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.addition.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.addition.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result =
               await _evaluateArithmeticBinOp(LuaOperator.plus, left, right);
           _stack.pushOrThrow(result);
@@ -585,6 +596,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.SUB:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number subtraction
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.subtraction.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.subtraction.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result =
               await _evaluateArithmeticBinOp(LuaOperator.minus, left, right);
           _stack.pushOrThrow(result);
@@ -592,6 +614,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.MUL:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number multiplication
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.multiplication.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.multiplication.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result =
               await _evaluateArithmeticBinOp(LuaOperator.multiply, left, right);
           _stack.pushOrThrow(result);
