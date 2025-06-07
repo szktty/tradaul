@@ -291,9 +291,9 @@ final class CompiledExecutionContext extends ExecutionContext {
   }
 
   Future<void> _execute() async {
-    final opcodes = code.opcodes;
+    final decodedInstructions = code.decodedInstructions;
 
-    for (; _pc < opcodes.length; _pc++) {
+    for (; _pc < decodedInstructions.length; _pc++) {
       switch (state) {
         case ExecutionContextState.running:
           break;
@@ -306,8 +306,7 @@ final class CompiledExecutionContext extends ExecutionContext {
           return;
       }
 
-      final opcode = opcodes[_pc];
-      final fields = LuaOpcode.getFields(opcode);
+      final fields = code.decodedInstructions[_pc];
 
       //print('eval ${_pc + 1} ${LuaOpcode.getName(fields.op)}, ${fields.op}');
       //_stack.debugPrint();
@@ -498,7 +497,7 @@ final class CompiledExecutionContext extends ExecutionContext {
           if (returns == null) {
             throw LuaException(LuaExceptionType.runtimeError, 'no return mark');
           }
-          _setReturn(returns.reversed.toList(), isCompleted: true);
+          _setReturn(returns, isCompleted: true);
 
         case LuaOpcode.RETURN_NONE:
           _setReturn(const [], isCompleted: true);
@@ -506,7 +505,7 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.CALL:
         case LuaOpcode.CALL_ALL_OUT:
           final savedReturns =
-              opcode == LuaOpcode.CALL_ALL_OUT ? null : fields.a;
+              fields.op == LuaOpcode.CALL_ALL_OUT ? null : fields.a;
           final args = _stack.popToMark<LuaArgMark>();
           if (args == null) {
             throw LuaException(LuaExceptionType.runtimeError, 'no arg mark');

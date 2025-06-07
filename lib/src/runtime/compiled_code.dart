@@ -1,5 +1,6 @@
 import 'package:tradaul/src/runtime/lua_table.dart';
 import 'package:tradaul/src/runtime/lua_values.dart';
+import 'package:tradaul/src/runtime/opcodes.dart';
 
 final class LineInfo {
   final List<MapEntry<int, int>> _pcs = [];
@@ -49,7 +50,9 @@ class LuaCompiledFunction {
     this.firstLine,
     this.lastLine,
     this.lineInfo,
-  });
+    List<DecodedInstruction>? decodedInstructions,
+  }) : decodedInstructions = decodedInstructions ?? 
+         opcodes.map(DecodedInstruction.decode).toList();
 
   final String? path;
   final String? name;
@@ -61,6 +64,7 @@ class LuaCompiledFunction {
   final int locals;
   final List<String> upvalues;
   final List<int> opcodes;
+  final List<DecodedInstruction> decodedInstructions;
   final List<LuaValue> constants;
   final List<LuaCompiledFunction> prototypes;
   final LineInfo? lineInfo;
