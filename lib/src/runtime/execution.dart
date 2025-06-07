@@ -1601,6 +1601,19 @@ final class CompiledExecutionContext extends ExecutionContext {
           return Success(LuaNil());
         }
       }
+    } else if (table is LuaString && !isRaw) {
+      final field = environment.getMetafield(table, LuaMetamethodNames.index);
+      if (field != null) {
+        if (field is LuaTable) {
+          return tableGet(field, key);
+        } else if (field is LuaFunction) {
+          return (await invoke(field, [table, key])).toLuaValueResult();
+        } else {
+          return Failure(error);
+        }
+      } else {
+        return Success(LuaNil());
+      }
     } else if (table.isUserData && !isRaw) {
       final field = environment.getMetafield(table, LuaMetamethodNames.index);
       if (field != null) {

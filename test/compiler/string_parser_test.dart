@@ -170,4 +170,24 @@ llo"
       expect(result.getOrThrow(), expected);
     });
   });
+
+  group('Vertical tab and form feed tests', () {
+    test('should parse \\v correctly', () {
+      const input = r'"\v"';
+      final result = LiteralStringParser.parse(input);
+      expect(result.isSuccess(), isTrue);
+      final parsed = result.getOrThrow();
+      expect(parsed.length, equals(1));
+      expect(parsed.codeUnitAt(0), equals(11)); // \v = vertical tab
+    });
+
+    test('should parse \\f correctly', () {
+      const input = r'"\f"';
+      final result = LiteralStringParser.parse(input);
+      expect(result.isSuccess(), isTrue);
+      final parsed = result.getOrThrow();
+      expect(parsed.length, equals(1));
+      expect(parsed.codeUnitAt(0), equals(12)); // \f = form feed
+    });
+  });
 }

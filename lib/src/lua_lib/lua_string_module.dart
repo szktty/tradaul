@@ -40,6 +40,12 @@ class LuaStringModule extends LuaNativeModule {
       'upper': _luaUpper,
     });
     context.environment.variables.stringKeySet('string', module);
+    
+    // Set up string metatable so that str:method() works as string.method(str)
+    final stringMetatable = LuaTable();
+    stringMetatable.stringKeySet('__index', module);
+    context.environment.setMetatable(LuaString(''), stringMetatable);
+    
     return Success(module);
   }
 }
@@ -118,21 +124,24 @@ Future<LuaCallResult?> _luaFind(
     }
   }
 
-  final plainBase = arguments.getRawValue<bool>(3);
-  if (plainBase != null && plainBase.isError()) {
-    return Failure(
-      LuaException.badArgumentTypeError(
-        function: 'string.find',
-        order: 4,
-        expected: 'boolean',
-        actual: plainBase.exceptionOrNull()!.luaType.name,
-      ),
-    );
-  }
-  final plain = plainBase?.getOrThrow() ?? false;
+  // Handle the plain parameter - in Lua, any value can be used as truthy/falsy
+  final plainValue = arguments.getOrNil(3);
+  final plain = plainValue.luaToBoolean;
 
   if (plain) {
     // Plain string search - literal string matching
+    // Special case: empty pattern always matches at the current position
+    if (pattern.isEmpty) {
+      if (init <= string.length + 1) {
+        return Success([
+          LuaInteger.fromInt(init),
+          LuaInteger.fromInt(init - 1),
+        ]);
+      } else {
+        return Success([LuaNil()]);
+      }
+    }
+    
     final index = string.indexOf(pattern, init - 1);
     if (index >= 0) {
       return Success([
@@ -160,6 +169,18 @@ Future<LuaCallResult?> _luaFind(
       return _handleUtf8CharPattern(string, init);
     }
 
+    // Special case: empty pattern always matches at the current position
+    if (pattern.isEmpty) {
+      if (init <= string.length + 1) {
+        return Success([
+          LuaInteger.fromInt(init),
+          LuaInteger.fromInt(init - 1),
+        ]);
+      } else {
+        return Success([LuaNil()]);
+      }
+    }
+    
     // Pattern matching
     final compileResult = LuaStringPattern.compile(pattern);
     if (compileResult.isError()) {
@@ -381,7 +402,7 @@ Future<LuaCallResult?> _luaByte(
       ),
     );
   }
-  final i = iBase?.getOrThrow().toInt() ?? 1;
+  var i = iBase?.getOrThrow().toInt() ?? 1;
 
   // Get end position (default start position)
   final jBase = arguments.getIntegerRepresentation(2);
@@ -393,17 +414,43 @@ Future<LuaCallResult?> _luaByte(
       ),
     );
   }
-  final j = jBase?.getOrThrow().toInt() ?? i;
+  var j = jBase?.getOrThrow().toInt() ?? i;
+  
+  // Handle negative indices (like Lua)
+  if (i < 0) {
+    i = string.length + i + 1;
+  }
+  if (j < 0) {
+    j = string.length + j + 1;
+  }
+  
+  // Clamp indices to valid range (standard Lua behavior)
+  if (i < 1) i = 1;
+  if (j > string.length) j = string.length;
 
-  if (i < 1 || i > string.length || j < i) {
-    return const Success([]);
+  // Handle out of range cases after clamping
+  if (i > string.length) {
+    // Start position beyond string length
+    return Success([LuaNil()]);
+  }
+  
+  if (j < i) {
+    // Invalid range, return nil in Lua (not nothing)
+    return Success([LuaNil()]);
   }
 
   final result = <LuaValue>[];
   final endIndex = j > string.length ? string.length : j;
+  
+  // Convert string to byte array to handle binary data correctly
+  final bytes = string.codeUnits;
+  
   for (var index = i; index <= endIndex; index++) {
-    final codeUnit = string.codeUnitAt(index - 1);
-    result.add(LuaInteger.fromInt(codeUnit));
+    // Get the raw byte value, not the Unicode code point
+    final byteValue = bytes[index - 1];
+    // Ensure the value is in the valid byte range (0-255)
+    final clampedValue = byteValue & 0xFF;
+    result.add(LuaInteger.fromInt(clampedValue));
   }
 
   return Success(result);
@@ -416,6 +463,13 @@ Future<LuaCallResult?> _luaChar(
   final result = <int>[];
 
   for (var i = 0; i < arguments.length; i++) {
+    final arg = arguments.getOrNil(i);
+    
+    // Skip nil arguments (this handles cases where string.byte returns no values)
+    if (arg is LuaNil) {
+      continue;
+    }
+    
     final intBase = arguments.getIntegerRepresentation(i);
     if (intBase == null || intBase.isError()) {
       return Failure(

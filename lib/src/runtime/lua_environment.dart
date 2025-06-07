@@ -44,6 +44,9 @@ final class LuaEnvironment {
         return false;
       }
       value.metatable = metatable;
+    } else if (value is LuaString) {
+      // Set metatable for all strings
+      _stringMetatable = metatable;
     } else if (value.isUserData) {
       if (metatable != null) {
         _userdataMetatables[value] = metatable;

@@ -13,3 +13,4 @@ test/execution/language/temp
 test/execution/temp
 .claude/settings.local.json
 .vscode/settings.json
+coverage/test

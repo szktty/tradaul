@@ -88,6 +88,9 @@ final class LuaTable extends LuaValue {
 
   @override
   String get luaRepresentation => 'table: $hashCode';
+  
+  @override
+  String luaToDisplayString() => luaRepresentation;
 
   @override
   dynamic get rawValue => this;

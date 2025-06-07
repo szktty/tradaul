@@ -914,18 +914,19 @@ Future<LuaCallResult?> _luaGetmetatable(
   LuaContext context,
   LuaArguments arguments,
 ) async {
-  final table = arguments.get<LuaTable>(0);
-  if (table == null) {
+  if (arguments.length < 1) {
     return Failure(
-      LuaException.badArgumentTypeError(
+      LuaException.wrongNumberOfArguments(
         function: 'getmetatable',
-        expected: 'table',
-        order: 1,
+        expected: '1',
       ),
     );
   }
 
-  final metatable = context.environment.getMetatable(table);
+  final value = arguments.getOrNil(0);
+  
+  // getmetatable can work with any value type
+  final metatable = context.environment.getMetatable(value);
   return Success([metatable ?? LuaNil()]);
 }
 
