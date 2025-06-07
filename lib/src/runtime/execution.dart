@@ -487,7 +487,7 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.CALL_ALL_OUT:
           final savedReturns =
               opcode == LuaOpcode.CALL_ALL_OUT ? null : fields.a;
-          final args = _stack.popToMark<LuaArgMark>()?.reversed.toList();
+          final args = _stack.popToMark<LuaArgMark>();
           if (args == null) {
             throw LuaException(LuaExceptionType.runtimeError, 'no arg mark');
           }

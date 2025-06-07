@@ -49,10 +49,10 @@ final class LuaStack {
 
   void push(LuaValue value) {
     topIndex++;
-    if (_slots.length < topIndex + 1) {
+    if (_slots.length <= topIndex) {
       _slots.add(LuaStackSlot(value));
     } else {
-      this[topIndex] = value;
+      _slots[topIndex].value = value;
     }
   }
 
@@ -71,29 +71,37 @@ final class LuaStack {
   }
 
   LuaValue pop() {
-    final result = _slots[topIndex];
+    final result = _slots[topIndex].value;
     topIndex--;
-    return result.value;
+    return result;
   }
 
   List<LuaValue> pops(int count) {
-    final result = _slots.sublist(topIndex - count + 1, topIndex + 1).toList();
+    final result = <LuaValue>[];
+    final start = topIndex - count + 1;
+    for (var i = start; i <= topIndex; i++) {
+      result.add(_slots[i].value);
+    }
     topIndex -= count;
-    return result.map((e) => e.value).toList();
+    return result;
   }
 
   List<LuaValue>? popToMark<T>({bool noReturn = false}) {
-    List<LuaValue>? result;
-    if (!noReturn) {
-      result = [];
-    }
-
     for (var i = topIndex; i >= 0; i--) {
       if (_slots[i].value is T) {
+        if (noReturn) {
+          topIndex = i - 1;
+          return null;
+        }
+        // Build result list in correct order directly
+        final count = topIndex - i;
+        final result = <LuaValue>[];
+        for (var j = i + 1; j <= topIndex; j++) {
+          result.add(_slots[j].value);
+        }
         topIndex = i - 1;
         return result;
       }
-      result?.add(_slots[i].value);
     }
     return null;
   }
