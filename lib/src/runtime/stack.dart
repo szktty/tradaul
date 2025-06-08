@@ -57,8 +57,17 @@ final class LuaStack {
   }
 
   void pushAll(List<LuaValue> values) {
-    for (final value in values) {
-      push(value);
+    if (values.isEmpty) return;
+    
+    // Optimized bulk push: ensure capacity and push directly
+    final newTopIndex = topIndex + values.length;
+    if (_slots.length <= newTopIndex) {
+      grow(newTopIndex + 1);
+    }
+    
+    for (var i = 0; i < values.length; i++) {
+      topIndex++;
+      _slots[topIndex].value = values[i];
     }
   }
 

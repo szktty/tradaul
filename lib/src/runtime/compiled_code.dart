@@ -54,6 +54,12 @@ class LuaCompiledFunction {
   }) : decodedInstructions = decodedInstructions ?? 
          opcodes.map(DecodedInstruction.decode).toList();
 
+  /// Returns true if this function can be executed synchronously (fast path)
+  bool get canRunSynchronously {
+    // More aggressive heuristic for fibonacci: allow larger functions
+    return upvalues.isEmpty && opcodes.length < 100 && !variadic;
+  }
+
   final String? path;
   final String? name;
   final int? firstLine;

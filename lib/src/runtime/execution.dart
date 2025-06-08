@@ -206,10 +206,23 @@ final class CompiledExecutionContext extends ExecutionContext {
     super.arguments,
     List<LuaStack>? upvalueStacks,
   }) : super() {
-    for (var i = 0; i < code.arity; i++) {
-      _stack.push(arguments.elementAtOrNull(i) ?? LuaNil());
+    // Optimized argument and local initialization
+    if (arguments.length == code.arity) {
+      // Fast path: exact argument count
+      _stack.pushAll(arguments);
+    } else if (arguments.length < code.arity) {
+      // Push provided arguments
+      _stack.pushAll(arguments);
+      // Fill remaining with nil
+      for (var i = arguments.length; i < code.arity; i++) {
+        _stack.push(LuaNil());
+      }
+    } else {
+      // Too many arguments, use only what's needed
+      _stack.pushAll(arguments.sublist(0, code.arity));
     }
 
+    // Batch initialize locals with nil
     for (var i = 0; i < code.locals; i++) {
       _stack.push(LuaNil());
     }
@@ -546,6 +559,9 @@ final class CompiledExecutionContext extends ExecutionContext {
           }
 
           final func = _stack.pop();
+          
+          // Remove fast path to avoid overhead
+          
           final result = await invoke(func, args);
 
           if (result.isError()) {
@@ -1085,6 +1101,24 @@ final class CompiledExecutionContext extends ExecutionContext {
       // newContext.finish();
       return result;
     } else if (func is LuaClosure) {
+      // Fast path removed due to performance regression
+      
+      // Optimized path: reduce context creation overhead
+      if (func.upvalueStacks.isEmpty && args.length <= func.code.arity) {
+        final newContext = CompiledExecutionContext(
+          coroutine: coroutine,
+          parent: this,
+          code: func.code,
+          arguments: args,
+          upvalueStacks: const [], // Empty list instead of copying
+          environment: func.environment ?? environment,
+        );
+        final result = newContext.resume(const []);
+        newContext.finish();
+        return result;
+      }
+      
+      // Normal path for complex cases
       final newContext = CompiledExecutionContext(
         coroutine: coroutine,
         parent: this,
@@ -1163,6 +1197,122 @@ final class CompiledExecutionContext extends ExecutionContext {
           ),
         ),
     };
+  }
+
+  /// Fast path for simple LuaClosure calls without context switching
+  List<LuaValue> _invokeLuaClosureFast(LuaClosure func, List<LuaValue> args) {
+    // Create a lightweight local stack
+    final localStack = LuaStack();
+    
+    // Push arguments to local stack
+    for (int i = 0; i < func.code.arity; i++) {
+      localStack.push(args.elementAtOrNull(i) ?? LuaNil());
+    }
+    
+    // Push locals (initialized to nil)
+    for (int i = 0; i < func.code.locals; i++) {
+      localStack.push(LuaNil());
+    }
+    
+    // Simple execution loop - only handle basic operations
+    int pc = 0;
+    final instructions = func.code.decodedInstructions;
+    final constants = func.code.constants;
+    
+    while (pc < instructions.length) {
+      final inst = instructions[pc];
+      
+      switch (inst.op) {
+        case LuaOpcode.LOAD_CONST:
+          localStack.push(constants[inst.a]);
+          
+        case LuaOpcode.LOAD_LOCAL:
+          localStack.push(localStack[inst.a]);
+          
+        case LuaOpcode.STORE_LOCAL:
+          localStack[inst.a] = localStack.pop();
+          
+        case LuaOpcode.ADD:
+          final right = localStack.pop();
+          final left = localStack.pop();
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.addition.validate(rawA, rawB) == null) {
+              localStack.push(ArithmeticOperatorDispatcher.addition.dispatch(rawA, rawB));
+            } else {
+              throw Exception('Fast path failed: arithmetic overflow');
+            }
+          } else {
+            throw Exception('Fast path failed: non-numeric addition');
+          }
+          
+        case LuaOpcode.SUB:
+          final right = localStack.pop();
+          final left = localStack.pop();
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.subtraction.validate(rawA, rawB) == null) {
+              localStack.push(ArithmeticOperatorDispatcher.subtraction.dispatch(rawA, rawB));
+            } else {
+              throw Exception('Fast path failed: arithmetic overflow');
+            }
+          } else {
+            throw Exception('Fast path failed: non-numeric subtraction');
+          }
+          
+        case LuaOpcode.LT:
+          final right = localStack.pop();
+          final left = localStack.pop();
+          if (left is LuaNumber && right is LuaNumber) {
+            final numLeft = left.rawValue as num;
+            final numRight = right.rawValue as num;
+            localStack.push(LuaBoolean.fromBool(numLeft < numRight));
+          } else {
+            throw Exception('Fast path failed: non-numeric comparison');
+          }
+          
+        case LuaOpcode.LE:
+          final right = localStack.pop();
+          final left = localStack.pop();
+          if (left is LuaNumber && right is LuaNumber) {
+            final numLeft = left.rawValue as num;
+            final numRight = right.rawValue as num;
+            localStack.push(LuaBoolean.fromBool(numLeft <= numRight));
+          } else {
+            throw Exception('Fast path failed: non-numeric comparison');
+          }
+          
+        case LuaOpcode.JUMP:
+          pc = inst.a - 1; // -1 because pc will be incremented
+          
+        case LuaOpcode.MARK_RETURN:
+          localStack.push(LuaReturnMark(localStack.topIndex + 1));
+          
+        case LuaOpcode.RETURN:
+          // Collect return values
+          final returns = <LuaValue>[];
+          while (localStack.topIndex >= 0 && localStack.top is! LuaReturnMark) {
+            returns.insert(0, localStack.pop());
+          }
+          if (localStack.topIndex >= 0 && localStack.top is LuaReturnMark) {
+            localStack.pop(); // Remove mark
+          }
+          return returns;
+          
+        case LuaOpcode.RETURN_NONE:
+          return const <LuaValue>[];
+          
+        default:
+          // Fall back to normal execution for complex operations
+          throw Exception('Fast path failed: unsupported opcode ${inst.op}');
+      }
+      
+      pc++;
+    }
+    
+    return const <LuaValue>[];
   }
 
   Future<LuaCallResult> _findAndInvokeFunction(
