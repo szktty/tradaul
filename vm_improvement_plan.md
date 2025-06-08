@@ -627,12 +627,42 @@ BytecodeOptimizer削除後、スタック最適化（Phase 1.3）も問題が発
 - **LuaValueオブジェクトプール**: 小さな整数（-128〜127）をキャッシュ
 - **スタックフレームの再利用**: 関数呼び出し時の新規割り当てを削減
 - **一時オブジェクトの削減**: 演算結果の直接格納
+- **LRU文字列キャッシュ**: 頻繁に使用される文字列の再利用
 
-**具体例**:
+**具体的な実装戦略**:
+
+##### 1.1 LuaValueオブジェクトプール設計
+
 ```dart
 class LuaValuePool {
-  static final _integerPool = <int, LuaInteger>{};
-  static final _smallStrings = <String, LuaString>{};
+  // 小さな整数は永続キャッシュ（256個のみ、メモリ使用量は予測可能）
+  static final Map<int, LuaInteger> _integerPool = {};
+  
+  // よく使うLua定数は永続キャッシュ
+  static final Map<String, LuaString> _constants = {
+    '': LuaString(''),
+    'nil': LuaString('nil'),
+    'true': LuaString('true'),
+    'false': LuaString('false'),
+    'and': LuaString('and'),
+    'or': LuaString('or'),
+    'not': LuaString('not'),
+    'if': LuaString('if'),
+    'then': LuaString('then'),
+    'else': LuaString('else'),
+    'end': LuaString('end'),
+    'function': LuaString('function'),
+    'return': LuaString('return'),
+    'local': LuaString('local'),
+    'for': LuaString('for'),
+    'while': LuaString('while'),
+    'do': LuaString('do'),
+    'break': LuaString('break'),
+  };
+  
+  // 一般的な文字列はLRUキャッシュ
+  static final LinkedHashMap<String, LuaString> _stringCache = LinkedHashMap();
+  static const int _maxStringCacheSize = 1000;
   
   static LuaInteger getInteger(int value) {
     if (value >= -128 && value <= 127) {
@@ -640,8 +670,135 @@ class LuaValuePool {
     }
     return LuaInteger(value);
   }
+  
+  static LuaString getString(String value) {
+    // 1. 永続定数をチェック
+    final constant = _constants[value];
+    if (constant != null) return constant;
+    
+    // 2. 短い文字列のみLRUキャッシュ対象
+    if (value.length <= 32) {
+      // LRUキャッシュから取得（アクセス順を更新）
+      final cached = _stringCache.remove(value);
+      if (cached != null) {
+        _stringCache[value] = cached; // 最新位置に移動
+        return cached;
+      }
+      
+      // 新規作成してキャッシュに追加
+      final luaString = LuaString(value);
+      _stringCache[value] = luaString;
+      
+      // 容量超過時は最古（最も使われていない）を削除
+      if (_stringCache.length > _maxStringCacheSize) {
+        final oldestKey = _stringCache.keys.first;
+        _stringCache.remove(oldestKey);
+      }
+      
+      return luaString;
+    }
+    
+    // 長い文字列はキャッシュしない（メモリリーク防止）
+    return LuaString(value);
+  }
+  
+  // 数値リテラル用の特別なメソッド
+  static LuaFloat getFloat(double value) {
+    // よく使う数値（0.0, 1.0, -1.0など）のキャッシュ
+    if (value == 0.0) return _floatZero;
+    if (value == 1.0) return _floatOne;
+    if (value == -1.0) return _floatMinusOne;
+    return LuaFloat(value);
+  }
+  
+  static final LuaFloat _floatZero = LuaFloat(0.0);
+  static final LuaFloat _floatOne = LuaFloat(1.0);
+  static final LuaFloat _floatMinusOne = LuaFloat(-1.0);
 }
 ```
+
+##### 1.2 LRUキャッシュの動作原理
+
+**キャッシュ削除のタイミング:**
+- **自動削除**: キャッシュサイズが上限（1000個）を超えた瞬間
+- **削除対象**: 最も長い間アクセスされていない（Least Recently Used）エントリ
+- **削除契機**: 新しい値を追加する時のみ
+
+**具体的な動作例:**
+```dart
+// 例: maxSize = 3 のキャッシュ
+cache.put('a', valueA); // キャッシュ: [a] (最古)
+cache.put('b', valueB); // キャッシュ: [a, b]
+cache.put('c', valueC); // キャッシュ: [a, b, c] (最新)
+
+// 'a' をアクセス
+cache.get('a'); // キャッシュ: [b, c, a] ('a'が最新に移動)
+
+// 新しい値を追加
+cache.put('d', valueD); 
+// → 'b' が削除される（最も古くなったから）
+// 結果: [c, a, d]
+```
+
+**メリット:**
+- **頻繁に使用される文字列**: 自動的に長く保持される（変数名、関数名など）
+- **一時的な文字列**: 適切に削除されてメモリリークを防止
+- **Luaキーワード**: 永続キャッシュで最高のパフォーマンス
+
+##### 1.3 スタックフレーム再利用
+
+```dart
+class StackFramePool {
+  static final Queue<StackFrame> _pool = Queue<StackFrame>();
+  static const int _maxPoolSize = 50;
+  
+  static StackFrame acquire(int size) {
+    if (_pool.isNotEmpty) {
+      final frame = _pool.removeFirst();
+      frame.reset(size);
+      return frame;
+    }
+    return StackFrame(size);
+  }
+  
+  static void release(StackFrame frame) {
+    if (_pool.length < _maxPoolSize) {
+      _pool.addLast(frame);
+    }
+  }
+}
+
+class StackFrame {
+  List<LuaValue> _slots;
+  int _topIndex = -1;
+  
+  StackFrame(int initialSize) : _slots = List.filled(initialSize, LuaNil());
+  
+  void reset(int newSize) {
+    if (_slots.length < newSize) {
+      _slots = List.filled(newSize, LuaNil());
+    } else {
+      // 既存配列を再利用してクリア
+      _slots.fillRange(0, newSize, LuaNil());
+    }
+    _topIndex = -1;
+  }
+}
+```
+
+##### 1.4 期待される効果
+
+**パフォーマンス向上の内訳:**
+- **整数キャッシュ**: 5-10%向上（算術演算が多い場合）
+- **文字列キャッシュ**: 10-15%向上（文字列操作が多い場合）
+- **スタックフレーム再利用**: 5-10%向上（関数呼び出しが多い場合）
+- **総合効果**: 20-30%の性能向上
+
+**メモリ使用量の制御:**
+- 整数プール: 最大256個 × 約32バイト = 約8KB
+- 文字列定数: 約20個 × 平均16バイト = 約320バイト
+- LRU文字列キャッシュ: 最大1000個 × 平均32バイト = 約32KB
+- **総メモリオーバーヘッド**: 約40KB（予測可能で許容範囲内）
 
 #### 2. **LuaTableの最適化**（優先度：高）
 **期待効果**: table.luaベンチマークで50-70%の性能向上
@@ -808,3 +965,60 @@ switch (inst.op) {
 - loop: 79.0%高速化（1.027秒 → 0.216秒）
 - table: 55.6%高速化（0.153秒 → 0.068秒）
 - string: 12.5%高速化（0.008秒 → 0.007秒）
+
+### 2025-06-08 LuaValuePool実装とパフォーマンス悪化 - 記録
+
+**実装期間**: 2025年6月8日（詳細な時刻不明）  
+**実装内容**: メモリアロケーション削減を狙ったLuaValuePool（オブジェクトプール）
+
+**実装詳細:**
+1. **LuaValuePoolクラスの作成**
+   - `lib/src/runtime/lua_value_pool.dart`を新規作成
+   - 小さな整数（-5〜50）をキャッシュ
+   - よく使う浮動小数点数（0.0, 1.0, -1.0）をキャッシュ
+   - Luaキーワードと短い文字列（16文字以下）をキャッシュ
+
+2. **既存コードの修正**
+   - `lua_values.dart`: LuaNumber.fromNum()等でプールを使用
+   - `compiler.dart`: 文字列・数値リテラルでプールを使用
+   - `execution.dart`: 定数ロードでプールを使用
+   - `operators.dart`: 演算結果の生成でプールを使用
+   - `lua_table.dart`: インデックス・キー生成でプールを使用
+
+**ベンチマーク結果（性能悪化）:**
+- fibonacci: 2.137秒 (悪化: -1.1% / 命令デコード最適化後比)
+- loop: 0.270秒 (悪化: -25.0% / 命令デコード最適化後比)
+- table: 0.072秒 (悪化: -5.9% / 命令デコード最適化後比)
+- string: 0.008秒 (悪化: -14.3% / 命令デコード最適化後比)
+
+**性能悪化の原因分析:**
+1. **Mapルックアップのオーバーヘッド**
+   - キャッシュチェック（Map.containsKey）のコストが新規オブジェクト作成より高い
+   - Dartの小オブジェクトアロケーションは既に高度に最適化されている
+
+2. **Dartランタイムの特性**
+   - DartのGCは小さな短命オブジェクトの処理に最適化済み
+   - プールによる長寿命化がかえってGC効率を悪化させる可能性
+
+3. **特にloop.luaでの顕著な悪化（-25%）**
+   - タイトループでの数値演算が頻繁
+   - 各演算でプールアクセスのオーバーヘッドが蓄積
+   - 単純な`LuaInteger(value)`より`_integerPool.putIfAbsent()`が遅い
+
+**技術的詳細:**
+- **実装されたキャッシュ戦略:**
+  - 整数: -5〜50の範囲（putIfAbsentで遅延初期化）
+  - 浮動小数点: 0.0, 1.0, -1.0のみ（事前作成）
+  - 文字列: Luaキーワード（事前作成）+ 16文字以下（500個まで）
+
+- **Map操作のコスト:**
+  - putIfAbsent: ハッシュ計算 + 存在チェック + 条件付き挿入
+  - 直接生成: コンストラクタ呼び出しのみ
+
+**結論:**
+Dartにおいては、一般的なVM最適化手法であるオブジェクトプールが逆効果となることが判明。DartのVMとGCの設計により、小さなオブジェクトの頻繁な生成・破棄は既に効率的に処理されており、プール化によるMapアクセスのオーバーヘッドが性能ボトルネックとなった。
+
+**教訓:**
+- 言語/ランタイム固有の特性を考慮した最適化が重要
+- 一般的な最適化手法が必ずしも有効とは限らない
+- ベンチマークによる検証なしに最適化を進めるべきではない
