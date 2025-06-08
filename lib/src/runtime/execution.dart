@@ -409,6 +409,16 @@ final class CompiledExecutionContext extends ExecutionContext {
           
           // Fast path for direct table access without metamethods
           if (table is LuaTable) {
+            // Super fast path for integer indices
+            if (key is LuaInteger) {
+              final intKey = key.value.toInt();
+              final value = table.fastGetInt(intKey);
+              if (value != null) {
+                _stack.push(value);
+                break;
+              }
+            }
+            
             final value = table.get(key);
             if (value != null) {
               _stack.push(value);
@@ -426,6 +436,13 @@ final class CompiledExecutionContext extends ExecutionContext {
           
           // Fast path for direct table set without metamethods
           if (table is LuaTable) {
+            // Super fast path for integer indices
+            if (key is LuaInteger) {
+              final intKey = key.value.toInt();
+              table.fastSetInt(intKey, value);
+              break;
+            }
+            
             final error = table.set(key, value);
             if (error == null) {
               break;
