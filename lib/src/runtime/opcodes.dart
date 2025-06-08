@@ -14,6 +14,55 @@ import 'package:tradaul/src/runtime/lua_values.dart';
 // Bx: 16 bits
 // sBx: signed Bx
 
+/// Decoded instruction for faster access to fields
+class DecodedInstruction {
+  final int op;
+  final int a;
+  final int b;
+  final int c;
+  final int ax;
+  final int sAx;
+  final int bx;
+  final int sBx;
+  
+  const DecodedInstruction({
+    required this.op,
+    required this.a,
+    required this.b,
+    required this.c,
+    required this.ax,
+    required this.sAx,
+    required this.bx,
+    required this.sBx,
+  });
+  
+  factory DecodedInstruction.decode(int code) {
+    const mask8bits = 0xFF;
+    const mask16bits = (1 << 16) - 1;
+    const mask24bits = (1 << 24) - 1;
+    
+    final op = code & mask8bits;
+    final a = (code >> 8) & mask8bits;
+    final b = (code >> 16) & mask8bits;
+    final c = (code >> 24) & mask8bits;
+    final ax = (code >> 8) & mask24bits;
+    final sAx = ax - (1 << 23);
+    final bx = (code >> 16) & mask16bits;
+    final sBx = bx - (1 << 15);
+    
+    return DecodedInstruction(
+      op: op,
+      a: a,
+      b: b,
+      c: c,
+      ax: ax,
+      sAx: sAx,
+      bx: bx,
+      sBx: sBx,
+    );
+  }
+}
+
 abstract class LuaOpcode {
   // load operations
   static const int NO_OP = 0;
