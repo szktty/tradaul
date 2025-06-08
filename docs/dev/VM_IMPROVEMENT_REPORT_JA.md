@@ -170,11 +170,110 @@ Tradaul VMの性能改善プロジェクトを実施し、ベースラインと�
 - 言語固有のランタイム特性を無視した最適化は性能悪化を招く
 - ベンチマーク測定なしの「常識的」最適化は危険
 
+## await除去による非同期オーバーヘッド削減（2025年6月8日追加）
+
+### 背景
+execution.dartの分析により、**57個のawait**が存在し、そのうち**46個が除去可能**であることが判明しました。これらのawaitの多くは、実際には非同期処理が不要な場面で使用されており、VMの性能ボトルネックとなっていました。
+
+### 実施した最適化
+
+#### 1. ビット演算の同期化（BAND, BOR, BXOR, SHL, SHR）
+```dart
+// 最適化前
+final result = await _evaluateArithmeticBinOp(LuaOperator.bitwiseAnd, left, right);
+
+// 最適化後
+if (left is LuaInteger && right is LuaInteger) {
+  final rawA = left.rawValue;
+  final rawB = right.rawValue;
+  if (ArithmeticOperatorDispatcher.bitwiseAnd.validate(rawA, rawB) == null) {
+    _stack.push(ArithmeticOperatorDispatcher.bitwiseAnd.dispatch(rawA, rawB));
+    break; // awaitを完全回避
+  }
+}
+```
+
+#### 2. 追加の算術演算同期化（IDIV, MOD, POW）
+既存のADD, SUB, MUL, DIVに加えて、残りの算術演算も同期的な高速パスを追加
+
+#### 3. 単項演算の同期化（NEG, BNOT）
+```dart
+// NEG: 数値の符号反転
+if (value is LuaInteger) {
+  _stack.push(LuaInteger(-value.value));
+  break;
+} else if (value is LuaFloat) {
+  _stack.push(LuaFloat(-value.value));
+  break;
+}
+```
+
+#### 4. 比較演算の同期化（GT, GE）
+LT, LEに加えて、GT, GEも数値・文字列同士の場合は同期処理に変更
+
+#### 5. 長さ演算とCONCATの同期化
+```dart
+// LEN: 文字列長とテーブル長の高速化
+if (value is LuaString) {
+  _stack.push(LuaInteger.fromInt(value.length));
+  break;
+}
+// メタメソッドがない場合のテーブル長も同期化
+
+// CONCAT: 文字列・数値結合の高速化
+if ((left is LuaString || left is LuaNumber) &&
+    (right is LuaString || right is LuaNumber)) {
+  final value = StringOperatorDispatcher.concatenation
+      .dispatch(left.rawValue, right.rawValue);
+  _stack.push(value);
+  break;
+}
+```
+
+#### 6. テーブル操作の同期化強化
+ASSIGN_FIELDでも整数キーと既存キーの場合は同期処理に変更
+
+### 性能測定結果
+
+**算術演算中心ベンチマーク**（200,000回のループ）:
+- **最適化前**: 0.160秒
+- **最適化後**: 0.097秒
+- **改善率**: **39%高速化**（1.65倍の性能向上）
+
+**fibonacci ベンチマーク**:
+- 変化なし（関数呼び出しがボトルネックのため）
+
+### 技術的成果
+
+1. **同期的高速パス**: 46個のawaitのうち多数を同期処理に置換
+2. **プリミティブ型最適化**: 数値・文字列・整数の直接操作をawaitなしで実行
+3. **メタメソッドバイパス**: メタメソッドが不要な場合の高速パスを拡充
+
+### 除去できないawait（11個）
+
+以下のawaitは言語仕様上除去不可能：
+- ネイティブ関数コールバック（Dartの関数シグネチャが`Future`を要求）
+- コルーチンのyield/resume制御
+- ユーザー定義メタメソッドの非同期コールバック
+- 関数呼び出し（`invoke`）
+
+### 今後の改善可能性
+
+1. **メタメソッドキャッシュ**: 重複するメタメソッド検索の削減
+2. **同期/非同期実行パスの分離**: コンパイル時に実行モードを判定
+3. **ネイティブ関数インターフェースの再設計**: 同期呼び出しサポート
+
 ## 結論
 
-2日間の集中的な最適化作業により、TradaulのVM性能を大幅に改善することができました。特にloop.luaで79%の高速化を達成したことは、数値計算処理において実用的な速度を提供できることを示しています。
+3日間の集中的な最適化作業により、TradaulのVM性能を大幅に改善することができました。特に：
 
-しかし、標準Luaとの性能差は依然として大きく（fibonacci.luaで約45倍遅い）、インタープリタ型VMとしての限界も見えています。今回の経験から、Dart特有の最適化戦略を理解し、言語の特性を活かした実装が重要であることが明らかになりました。
+- **loop.lua**: 79%の高速化
+- **table.lua**: 55.6%の高速化  
+- **算術演算**: 39%の高速化
+
+await除去による最適化は、算術演算中心のコードで顕著な効果を示し、VMのボトルネックである非同期オーバーヘッドを大幅に削減できました。
+
+しかし、標準Luaとの性能差は依然として大きく（fibonacci.luaで約34倍遅い）、関数呼び出しがボトルネックとなる処理では改善の余地が残っています。今回の経験から、Dart特有の最適化戦略を理解し、同期/非同期処理の適切な使い分けが重要であることが明らかになりました。
 
 ## 付録：詳細な技術情報
 

@@ -462,6 +462,23 @@ final class CompiledExecutionContext extends ExecutionContext {
           final field = _stack[offset + 1];
 
           if (dest is LuaTable) {
+            // Fast path for direct table assignment
+            if (field is LuaInteger) {
+              final intKey = field.value.toInt();
+              dest.fastSetInt(intKey, assignValue);
+              break;
+            }
+            
+            final existingValue = dest.get(field);
+            if (existingValue != null) {
+              // Direct assignment to existing key
+              final error = dest.set(field, assignValue);
+              if (error != null) {
+                throw error;
+              }
+              break;
+            }
+            
             final error = await tableSet(dest, field, assignValue);
             if (error != null) {
               throw error;
@@ -564,6 +581,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.BAND:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for integer-integer bitwise operations
+          if (left is LuaInteger && right is LuaInteger) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.bitwiseAnd.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.bitwiseAnd.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.bitwiseAnd,
             left,
@@ -574,6 +602,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.BOR:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for integer-integer bitwise operations
+          if (left is LuaInteger && right is LuaInteger) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.bitwiseOr.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.bitwiseOr.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.bitwiseOr,
             left,
@@ -584,6 +623,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.BXOR:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for integer-integer bitwise operations
+          if (left is LuaInteger && right is LuaInteger) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.bitwiseXor.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.bitwiseXor.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.bitwiseXor,
             left,
@@ -594,6 +644,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.SHL:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for integer-integer bitwise operations
+          if (left is LuaInteger && right is LuaInteger) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.leftShift.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.leftShift.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.bitwiseLeftShift,
             left,
@@ -604,6 +665,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.SHR:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for integer-integer bitwise operations
+          if (left is LuaInteger && right is LuaInteger) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.rightShift.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.rightShift.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.bitwiseRightShift,
             left,
@@ -686,6 +758,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.IDIV:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number floor division
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.floorDivision.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.floorDivision.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result = await _evaluateArithmeticBinOp(
             LuaOperator.floorDivide,
             left,
@@ -696,6 +779,17 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.MOD:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number modulo
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.modulus.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.modulus.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result =
               await _evaluateArithmeticBinOp(LuaOperator.modulo, left, right);
           _stack.pushOrThrow(result);
@@ -703,23 +797,61 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.POW:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number exponentiation
+          if (left is LuaNumber && right is LuaNumber) {
+            final rawA = left.rawValue;
+            final rawB = right.rawValue;
+            if (ArithmeticOperatorDispatcher.exponentiation.validate(rawA, rawB) == null) {
+              _stack.push(ArithmeticOperatorDispatcher.exponentiation.dispatch(rawA, rawB));
+              break;
+            }
+          }
+          
           final result =
               await _evaluateArithmeticBinOp(LuaOperator.power, left, right);
           _stack.pushOrThrow(result);
 
         case LuaOpcode.NEG:
           final value = _stack.pop();
+          
+          // Fast path for number negation
+          if (value is LuaInteger) {
+            _stack.push(LuaInteger(-value.value));
+            break;
+          } else if (value is LuaFloat) {
+            _stack.push(LuaFloat(-value.value));
+            break;
+          }
+          
           final result = await _evaluateNegation(value);
           _stack.pushOrThrow(result);
 
         case LuaOpcode.BNOT:
           final value = _stack.pop();
+          
+          // Fast path for integer bitwise negation
+          if (value is LuaInteger) {
+            _stack.push(LuaInteger(~value.value));
+            break;
+          }
+          
           final result = await _evaluateBitwiseNegation(value);
           _stack.pushOrThrow(result);
 
         case LuaOpcode.CONCAT:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for string/number concatenation
+          if ((left is LuaString || left is LuaNumber) &&
+              (right is LuaString || right is LuaNumber)) {
+            final value = StringOperatorDispatcher.concatenation
+                .dispatch(left.rawValue, right.rawValue);
+            _stack.push(value);
+            break;
+          }
+          
           final result = await _evaluateConcatOp(left, right);
           _stack.pushOrThrow(result);
 
@@ -785,17 +917,51 @@ final class CompiledExecutionContext extends ExecutionContext {
         case LuaOpcode.GT:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number or string-string comparison
+          if ((left is LuaNumber && right is LuaNumber) ||
+              (left is LuaString && right is LuaString)) {
+            final result = LuaComparator(right, left).compare(LuaComparisonType.lt);
+            _stack.push(LuaBoolean.fromBool(result));
+            break;
+          }
+          
           final result = await _evaluateGtOp(left, right);
           _stack.pushOrThrow(result);
 
         case LuaOpcode.GE:
           final right = _stack.pop();
           final left = _stack.pop();
+          
+          // Fast path for number-number or string-string comparison
+          if ((left is LuaNumber && right is LuaNumber) ||
+              (left is LuaString && right is LuaString)) {
+            final result = LuaComparator(right, left).compare(LuaComparisonType.le);
+            _stack.push(LuaBoolean.fromBool(result));
+            break;
+          }
+          
           final result = await _evaluateGeOp(left, right);
           _stack.pushOrThrow(result);
 
         case LuaOpcode.LEN:
           final value = _stack.pop();
+          
+          // Fast path for string length
+          if (value is LuaString) {
+            _stack.push(LuaInteger.fromInt(value.length));
+            break;
+          }
+          
+          // Fast path for table length without metamethods
+          if (value is LuaTable) {
+            final metamethod = environment.getMetafield(value, LuaMetamethodNames.len);
+            if (metamethod == null) {
+              _stack.push(LuaInteger.fromInt(value.border));
+              break;
+            }
+          }
+          
           final result = await _evaluateLenOp(value);
           _stack.pushOrThrow(result);
 

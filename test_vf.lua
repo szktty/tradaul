@@ -1,0 +1,1 @@
+print(string.byte('\v'), string.byte('\f'))
